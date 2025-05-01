@@ -10,7 +10,7 @@ class StudentSubject extends Model
     protected $table = 'studentsubjects';
 
     // The fillable attributes to allow mass assignment
-    protected $fillable = ['idnumber', 'subject_id', 'user_type'];
+    protected $fillable = ['idnumber', 'subject_id', 'usertype']; 
 
     // Define the relationship with the User model
     public function user()

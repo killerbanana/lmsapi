@@ -63,7 +63,7 @@ class User extends Authenticatable
     public function subjects()
     {
         return $this->belongsToMany(Subject::class, 'studentsubject', 'idnumber', 'subject_id')
-                    ->withPivot('user_type') // Store the user_type (Student/Teacher)
-                    ->withTimestamps(); // Automatically manages created_at and updated_at in pivot
+                    ->withPivot('usertype') 
+                    ->withTimestamps(); 
     }
 }

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id(); // Auto-increment ID for the pivot table
             $table->string('idnumber'); // Reference to users.idnumber
             $table->string('subject_id'); // Reference to subject.subject_id
-            $table->enum('user_type', ['Student', 'Teacher']);
+            $table->enum('usertype', ['Administrator', 'Student', 'Teacher', 'Parent'])->default('Student');
             $table->timestamps(); 
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
             $table->foreign('subject_id')->references('subject_id')->on('subjects')->onDelete('cascade');

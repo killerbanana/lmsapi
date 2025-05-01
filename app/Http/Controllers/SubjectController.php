@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class SubjectController extends Controller
 {
     public function createSubject(Request $request)
     {
+        $user = Auth::user();
+        
         // Validate the request
         $validator = Validator::make($request->all(), [
             'subject_id' => 'required|string|unique:subjects,subject_id',

@@ -9,12 +9,12 @@ class RoleAbilitiesService
     {
         $roleAbilities = [
             'Administrator' => ['*'],
-            'Teacher' => ['view-students', 'grade-students', 'update-profile'],
+            'Teacher' => ['view-students', 'grade-students', 'update-profile', 'assign-student-subject'],
             'Student' => ['view-grades', 'update-profile', 'answer-module'],
-            'Parent' => ['read-only']
+            'Parent' => ['read-only'],
         ];
 
-        // Return the abilities for the given role, or default to 'read-profile'
+        // Return the abilities for the given role, or default to 'read-only'
         return $roleAbilities[$role] ?? ['read-only']; 
     }
 }

@@ -10,7 +10,15 @@ use App\Http\Controllers\StudentSubjectController;
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 Route::middleware('auth:sanctum')->get('/readstudent', [UserController::class, 'read']);
-// routes/api.php
-Route::middleware('auth:sanctum')->post('/subject/create', [SubjectController::class, 'createSubject']);
-Route::middleware('auth:sanctum')->post('/studentsubject/create', [StudentSubjectController::class, 'createStudentSubject']);
 
+Route::middleware('auth:sanctum')->group(function () {
+
+    Route::post('/subject/create', [SubjectController::class, 'createSubject'])
+    ->middleware('check.ability:create-subject');
+
+    Route::post('/studentsubject/assign/student', [StudentSubjectController::class, 'assignStudentToSubject'])
+        ->middleware('check.ability:assign-student-subject');
+
+    Route::post('/studentsubject/assign/teacher', [StudentSubjectController::class, 'assignTeacherToSubject'])
+        ->middleware('check.ability:assign-teacher-subject');
+});

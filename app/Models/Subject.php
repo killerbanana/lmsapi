@@ -17,7 +17,7 @@ class Subject extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'studentsubject', 'subject_id', 'idnumber')
-                    ->withPivot('user_type') // Store the user_type (Student/Teacher)
+                    ->withPivot('usertype')
                     ->withTimestamps();
     }
 }
