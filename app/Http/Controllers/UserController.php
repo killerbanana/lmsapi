@@ -6,16 +6,42 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\PersonalInfo;
+use Illuminate\Support\Facades\Hash;
+use App\Services\RoleAbilitiesService;
 
 class UserController extends Controller
 {
+
+    public function read(Request $request)
+    {
+        // Check if the user is authenticated
+        if (! $request->user()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+        
+        // Admin with [*] or user with specific permission can access
+        if (! $request->user()->tokenCan('view-students') && $request->user()->usertype !== 'Administrator') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+    
+        // Get all students (you can filter by usertype or any logic)
+        $students = PersonalInfo::whereHas('user', function ($query) {
+            $query->where('usertype', 'Student');
+        })->get();;
+    
+        return response()->json([
+            'message' => 'Students retrieved successfully',
+            'data' => $students
+        ]);
+    }
+
     public function register(Request $request)
     {
         // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'username' => 'required|string|unique:users,username',
             'idnumber' => 'required|string|unique:users,idnumber',
-            'usertype' => 'required|in:admin,student,teacher',
+            'usertype' => 'required|in:Administrator,Student,Teacher,Parent',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8',
             'firstname' => 'nullable|string',
@@ -68,6 +94,51 @@ class UserController extends Controller
             'user' => $user,
             'personal_info' => $personalInfo
         ], 201);
+    }
+
+    public function login(Request $request)
+    {
+        $credentials = $request->validate([
+            'username' => 'required|string', // or 'email' if you're using email
+            'password' => 'required|string',
+        ]);
+
+        // Try to find the user by username
+        $user = User::where('username', $credentials['username'])->first();
+
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            return response()->json(['message' => 'Invalid credentials'], 401);
+        }
+        
+        $abilities = RoleAbilitiesService::getAbilities($user->usertype);
+
+        // Delete previous token
+        $user->tokens->each(function ($token) {
+            $token->delete();  // Delete all previous tokens
+        });
+
+        // Create a token using Sanctum
+        $token = $user->createToken('auth_token', $abilities)->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login successful',
+            'token' => $token,
+            'user' => $user,
+        ]);
+    }
+
+
+    public function getStudents()
+    {
+        // Check if authenticated user has 'view-students' ability
+        if (!Auth::user()->tokenCan('view-students')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Fetch users with usertype = Student
+        $students = User::where('usertype', 'Student')->get();
+
+        return response()->json($students);
     }
 
 }
