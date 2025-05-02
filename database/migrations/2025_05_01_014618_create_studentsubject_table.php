@@ -12,9 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('studentsubjects', function (Blueprint $table) {
-            $table->id(); // Auto-increment ID for the pivot table
-            $table->string('idnumber'); // Reference to users.idnumber
-            $table->string('subject_id'); // Reference to subject.subject_id
+            $table->id();
+            $table->string('idnumber');
+            $table->string('subject_id');
             $table->enum('usertype', ['Administrator', 'Student', 'Teacher', 'Parent'])->default('Student');
             $table->timestamps(); 
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');

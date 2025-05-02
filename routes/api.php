@@ -11,6 +11,10 @@ Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 Route::middleware('auth:sanctum')->get('/readstudent', [UserController::class, 'read']);
 
+Route::get('/', function () {
+    return response()->json(['message' => ''], 404);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/subject/create', [SubjectController::class, 'createSubject'])

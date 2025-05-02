@@ -107,7 +107,7 @@ class StudentSubjectController extends Controller
 
         if ($existingAssociation) {
             return response()->json([
-                'message' => 'This user is already associated with this subject as ' . $existingAssociation->usertype . '.',
+                'message' => 'This user is already associated with this subject as ' . $existingAssociation->usertype . '.',        
             ], 409);
         }
 
