@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class PersonalInfo extends Model
+class Students extends Model
 {
     // The table associated with the model
-    protected $table = 'personal_info';  // Optional, only if the table name is different from the plural form of the model name
+    protected $table = 'students';  // Optional, only if the table name is different from the plural form of the model name
 
     // The attributes that are mass assignable
     protected $fillable = [

@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id(); // Auto-increment ID (for internal use)
-            $table->string('idnumber')->unique(); // Unique identifier for the user (used in studentsubject)
+            $table->id();
+            $table->string('idnumber')->unique(); 
             $table->string('username')->unique();
             $table->enum('usertype', ['Administrator', 'Student', 'Teacher', 'Parent'])->default('Student');
             $table->string('email')->unique();

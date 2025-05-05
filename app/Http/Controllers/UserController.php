@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use App\Models\PersonalInfo;
+use App\Models\Students;
+use App\Models\Teachers;
 use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
 
@@ -35,15 +36,15 @@ class UserController extends Controller
         ]);
     }
 
-    public function register(Request $request)
+    public function registerStudent(Request $request)
     {
         // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'username' => 'required|string|unique:users,username',
             'idnumber' => 'required|string|unique:users,idnumber',
-            'usertype' => 'required|in:Administrator,Student,Teacher,Parent',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8',
+            'section' => 'nullable|string',
             'firstname' => 'nullable|string',
             'lastname' => 'nullable|string',
             'phone' => 'nullable|string',
@@ -64,13 +65,13 @@ class UserController extends Controller
         $user = User::create([
             'username' => $request->username,
             'idnumber' => $request->idnumber,
-            'usertype' => $request->usertype,
             'email' => $request->email,
             'password' => bcrypt($request->password),
+            'usertype' => 'Student',
         ]);
 
-        // Create or update the PersonalInfo for the user
-        $personalInfo = PersonalInfo::updateOrCreate(
+        
+        $personalInfo = Students::updateOrCreate(
             ['idnumber' => $user->idnumber],  // Check if the idnumber exists
             [
                 'section' => $request->section,
@@ -88,11 +89,57 @@ class UserController extends Controller
             ]
         );
 
-        // Return success response with user and personal info
         return response()->json([
-            'message' => 'User and Personal Info created successfully!',
-            'user' => $user,
-            'personal_info' => $personalInfo
+            'message' => 'Student account created successfully!',
+            'idnumber' => $personalInfo->idnumber
+        ], 201);
+    }
+
+
+    public function registerTeacher(Request $request)
+    {
+        // Validate the incoming request data
+        $validator = Validator::make($request->all(), [
+            'username' => 'required|string|unique:users,username',
+            'idnumber' => 'required|string|unique:users,idnumber',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
+            'firstname' => 'nullable|string',
+            'lastname' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'gender' => 'nullable|in:male,female,other',
+            'birthdate' => 'nullable|date',
+            'address' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $user = User::create([
+            'username' => $request->username,
+            'idnumber' => $request->idnumber,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+            'usertype' => 'Teacher',
+        ]);
+
+        $personalInfo = Teachers::updateOrCreate(
+            ['idnumber' => $user->idnumber],
+            [
+                'firstname' => $request->firstname,
+                'lastname' => $request->lastname,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'gender' => $request->gender,
+                'birthdate' => $request->birthdate,
+                'address' => $request->address,
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Teacher account created successfully!',
+            'idnumber' => $personalInfo->idnumber
         ], 201);
     }
 
