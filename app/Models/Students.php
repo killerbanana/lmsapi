@@ -37,9 +37,5 @@ class Students extends Model
     {
         return $this->belongsTo(User::class, 'idnumber', 'idnumber');
     }
-
-    public function classes()
-    {
-        return $this->belongsToMany(Classes::class, 'class_student');
-    }
+    
 }

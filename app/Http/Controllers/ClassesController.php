@@ -37,8 +37,4 @@ class ClassesController extends Controller
             'data' => $class
         ], 201);
     }
-
-    public function enrollStudentToClass(Request $request){
-        
-    }
 }
