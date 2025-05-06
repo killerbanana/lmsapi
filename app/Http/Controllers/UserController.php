@@ -146,12 +146,22 @@ class UserController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'username' => 'required|string', // or 'email' if you're using email
+            'email' => 'required|string', // or 'email' if you're using email
             'password' => 'required|string',
         ]);
 
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string', // or 'email' if you're using email
+            'password' => 'required|string',
+        ]);
+
+        // If validation fails, return the errors
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
         // Try to find the user by username
-        $user = User::where('username', $credentials['username'])->first();
+        $user = User::where('email', $credentials['email'])->first();
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
