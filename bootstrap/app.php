@@ -19,6 +19,22 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
-    })->create();
+        // Force JSON error response for API routes
+        $exceptions->render(function (Throwable $exception, $request) {
+            if ($request->expectsJson() || str_starts_with($request->getPathInfo(), '/api')) {
+                // Return a simple JSON error response without stack trace
+                return response()->json([
+                    'message' => 'An error occurred.',
+                    'error' => config('app.debug') ? $exception->getMessage() : 'Server Error'
+                ], method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 500);
+            }
+
+            // Default HTML error for non-API routes
+            return response()->view('errors.500', [], 500);
+        });
+    })
+    ->create();
+
+
+
 

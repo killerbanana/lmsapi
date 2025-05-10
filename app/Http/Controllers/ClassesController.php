@@ -10,6 +10,8 @@ use App\Models\Teachers;
 use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
 use App\Models\Classes;
+use Illuminate\Support\Facades\Auth;
+
 
 class ClassesController extends Controller
 {

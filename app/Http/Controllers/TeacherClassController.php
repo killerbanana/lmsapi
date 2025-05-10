@@ -8,6 +8,7 @@ use App\Services\RoleAbilitiesService;
 use App\Models\Teachers;
 use App\Models\Classes;
 use App\Models\TeacherClass;
+use Illuminate\Support\Facades\Auth;
 
 class TeacherClassController extends Controller
 {
@@ -43,5 +44,12 @@ class TeacherClassController extends Controller
             'message' => 'Teacher successfully added to class.',
             'data' => $teacherClass
         ], 201);
+    }
+
+    public function getAllClass(Request $request)
+    {
+        $user = Auth::user();
+        $lessons = TeacherClass::where('idnumber', $user->idnumber )->get();
+        return response()->json(['classes' => $lessons], 200);
     }
 }

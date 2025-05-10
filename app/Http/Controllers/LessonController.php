@@ -54,9 +54,14 @@ class LessonController extends Controller
 
     public function getAllLessons(Request $request)
     {
-        $classId = $request->query('classId');
-        $user = Auth::user();
-        $lessons = Lessons::where('idnumber', $user->idnumber )->where('class_id', $classId)->get();
-        return response()->json(['lessons' => $lessons], 200);
+        try{
+            $classId = $request->query('classId');
+            $user = Auth::user();
+            $lessons = Lessons::where('idnumber', $user->idnumber )->where('class_id', $classId)->get();
+            return response()->json(['lessons' => $lessons], 200);
+        }catch(e){
+            print_r(e);
+            throw new \Exception("Test Exception Error");
+        }
     }
 }
