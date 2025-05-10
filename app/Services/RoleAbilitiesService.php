@@ -9,7 +9,8 @@ class RoleAbilitiesService
     {
         $roleAbilities = [
             'Administrator' => ['*'],
-            'Teacher' => ['view-students', 'grade-students', 'update-profile', 'assign-student-subject', 'assign-student-class'],
+            'Teacher' => ['view-students', 'grade-students', 'update-profile', 'subject-assign-student', 'class-assign-student', 'create-lesson',
+        'view-lessons'],
             'Student' => ['view-grades', 'update-profile', 'answer-module'],
             'Parent' => ['read-only'],
         ];

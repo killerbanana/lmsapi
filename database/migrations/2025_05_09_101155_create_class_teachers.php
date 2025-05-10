@@ -11,15 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('studentsubjects', function (Blueprint $table) {
+        Schema::create('class_teachers', function (Blueprint $table) {
             $table->id();
             $table->string('idnumber');
-            $table->string('subject_id');
-            $table->enum('usertype', ['Administrator', 'Student', 'Teacher', 'Parent'])->default('Student');
-            $table->timestamps(); 
+            $table->string('class_id');
+            $table->foreign('class_id')->references('class_id')->on('classes')->onDelete('cascade');
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
-            $table->foreign('subject_id')->references('subject_id')->on('subjects')->onDelete('cascade');
-            $table->unique(['idnumber', 'subject_id']);
+            $table->timestamps();
         });
     }
 
@@ -28,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('studentsubjects');
+        Schema::dropIfExists('class_teachers');
     }
 };

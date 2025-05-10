@@ -4,13 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class StudentSubject extends Model
+class StudentLesson extends Model
 {
     // Table name is 'studentsubjects', not 'studentsubject'
-    protected $table = 'studentsubjects';
+    protected $table = 'lesson_students';
 
     // The fillable attributes to allow mass assignment
-    protected $fillable = ['idnumber', 'subject_id', 'usertype']; 
+    protected $fillable = ['idnumber', 'lesson_id', 'usertype']; 
 
     // Define the relationship with the User model
     public function user()
@@ -20,9 +20,9 @@ class StudentSubject extends Model
     }
 
     // Define the relationship with the Subject model
-    public function subject()
+    public function lesson()
     {
         // Foreign key: subject_id refers to subjects.subject_id
-        return $this->belongsTo(Subject::class, 'subject_id', 'subject_id');
+        return $this->belongsTo(Subject::class, 'lesson_id', 'lesson_id');
     }
 }

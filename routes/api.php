@@ -2,10 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\SubjectController;
-use App\Http\Controllers\StudentSubjectController;
 use App\Http\Controllers\ClassesController;
 use App\Http\Controllers\StudentClassController;
+use App\Http\Controllers\TeacherClassController;
+use App\Http\Controllers\LessonController;
 
 // Default fallback route
 Route::get('/', function () {
@@ -26,19 +26,28 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('check.ability:register-teacher');
 
     // Subject Routes
-    Route::post('/subject/create', [SubjectController::class, 'createSubject'])
-        ->middleware('check.ability:create-subject');
+    Route::post('/lesson/create', [LessonController::class, 'createLesson'])
+        ->middleware('check.ability:create-lesson');
+    
+    Route::get('/lessons', [LessonController::class, 'getAllLessons'])
+        ->middleware('check.ability:view-lessons');
 
-    Route::post('/studentsubject/assign/student', [StudentSubjectController::class, 'assignStudentToSubject'])
-        ->middleware('check.ability:assign-student-subject');
+    Route::post('/subject/assign/student', [StudentSubjectController::class, 'assignStudentToSubject'])
+        ->middleware('check.ability:subject-assign-student');
 
-    Route::post('/studentsubject/assign/teacher', [StudentSubjectController::class, 'assignTeacherToSubject'])
-        ->middleware('check.ability:assign-teacher-subject');
+    Route::post('/subject/assign/teacher', [StudentSubjectController::class, 'assignTeacherToSubject'])
+        ->middleware('check.ability:subject-assign-teacher');
 
     // Class Routes
     Route::post('/class/create', [ClassesController::class, 'createClass'])
         ->middleware('check.ability:create-class');
 
-    Route::post('/studentclass/create', [StudentClassController::class, 'assignStudentToClass'])
-        ->middleware('check.ability:assign-class-student');
+    Route::post('/class/assign/student', [StudentClassController::class, 'assignStudentToClass'])
+        ->middleware('check.ability:class-assign-student');
+
+    Route::post('/class/assign/teacher', [TeacherClassController::class, 'assignTeacherToClass'])
+        ->middleware('check.ability:class-assign-teacher');
+
+    Route::post('/class/assign/subject', [TeacherClassController::class, 'assignTeacherToClass'])
+        ->middleware('check.ability:class-assign-teacher');
 });
