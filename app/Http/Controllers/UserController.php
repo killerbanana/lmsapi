@@ -209,4 +209,13 @@ class UserController extends Controller
         return response()->json($user);
     }
 
+    public function checkAuthStatus(Request $request)
+    {
+        if (Auth::check()) {
+            return response()->json(['logged_in' => true, 'user' => Auth::user()]);
+        }
+
+        return response()->json(['logged_in' => false], 401);
+    }
+
 }

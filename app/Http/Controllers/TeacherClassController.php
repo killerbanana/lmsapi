@@ -49,7 +49,16 @@ class TeacherClassController extends Controller
     public function getAllClass(Request $request)
     {
         $user = Auth::user();
-        $lessons = TeacherClass::where('idnumber', $user->idnumber )->get();
+
+        if ($user->usertype === 'Administrator') {
+            // Administrator sees all classes
+            $lessons = TeacherClass::all();
+        } else {
+            // Others see only their own classes
+            $lessons = TeacherClass::where('idnumber', $user->idnumber)->get();
+        }
+
         return response()->json(['classes' => $lessons], 200);
     }
+
 }

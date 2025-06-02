@@ -26,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'An error occurred.',
                     'error' => config('app.debug') ? $exception->getMessage() : 'Server Error'
-                ], method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 500);
+                ], method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 401);
             }
 
             // Default HTML error for non-API routes

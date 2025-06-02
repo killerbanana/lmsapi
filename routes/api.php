@@ -7,6 +7,8 @@ use App\Http\Controllers\StudentClassController;
 use App\Http\Controllers\TeacherClassController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\StudentSubjectController;
+use Illuminate\Support\Facades\Auth;
+
 
 // Default fallback route
 Route::get('/', function () {
@@ -16,12 +18,13 @@ Route::get('/', function () {
 // Public Auth Route
 Route::post('/login', [UserController::class, 'login']);
 
-// Protected Routes (Sanctum Auth)
 Route::middleware('auth:sanctum')->group(function () {
 
     //Uer
     Route::get('/currentuser', [UserController::class, 'getCurrentUser']);
 
+    Route::get('/check-auth', [UserController::class, 'checkAuthStatus']);
+    
     // Registration Routes
     Route::post('/register/student', [UserController::class, 'registerStudent'])
         ->middleware('check.ability:register-student');

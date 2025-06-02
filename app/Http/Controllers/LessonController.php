@@ -54,14 +54,37 @@ class LessonController extends Controller
 
     public function getAllLessons(Request $request)
     {
-        try{
-            $classId = $request->query('classId');
-            $user = Auth::user();
-            $lessons = Lessons::where('idnumber', $user->idnumber )->where('class_id', $classId)->get();
-            return response()->json(['lessons' => $lessons], 200);
-        }catch(e){
-            print_r(e);
-            throw new \Exception("Test Exception Error");
+    try {
+        $classId = $request->query('classId');
+        $user = Auth::user();
+
+        // If Administrator and no classId given, return all lessons
+        if ($user->usertype === 'Administrator' && !$classId) {
+            $lessons = Lessons::all();
+        } else {
+            // Build query for other cases
+            $query = Lessons::query();
+
+            // If not Administrator, restrict to their own lessons
+            if ($user->usertype !== 'Administrator') {
+                $query->where('idnumber', $user->idnumber);
+            }
+
+            // Filter by classId if provided
+            if ($classId) {
+                $query->where('class_id', $classId);
+            }
+
+            $lessons = $query->get();
+        }
+
+        return response()->json(['lessons' => $lessons], 200);
+
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'An error occurred while fetching lessons.',
+            'error' => config('app.debug') ? $e->getMessage() : 'Server error'
+            ], 500);
         }
     }
 }
