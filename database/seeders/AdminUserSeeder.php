@@ -29,6 +29,8 @@ class AdminUserSeeder extends Seeder
             'photo' => 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSn8fHaLdaUpKOKTfHYd0KekveFT5Qu01D7sQ&s',
             'created_at' => now(),
             'updated_at' => now(),
+            'firstname' => 'First Name',
+            'lastname' => 'Last Name'
         ]);
     }
 }

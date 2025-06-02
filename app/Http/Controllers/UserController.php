@@ -245,7 +245,22 @@ class UserController extends Controller
     public function checkAuthStatus(Request $request)
     {
         if (Auth::check()) {
-            return response()->json(['logged_in' => true, 'user' => Auth::user()]);
+            $user = Auth::user();
+            switch ($user->usertype) {
+                case 'Administrator':
+                    $personalInfo = Admin::where('idnumber', $user->idnumber)->first();
+                    break;
+                case 'Teacher':
+                    $personalInfo = Teachers::where('idnumber', $user->idnumber)->first();
+                    break;
+                case 'Student':
+                    $personalInfo = Students::where('idnumber', $user->idnumber)->first();
+                    break;
+                default:
+                    // Optionally handle unexpected usertype
+                    $personalInfo = null;
+            }
+            return response()->json(['logged_in' => true, 'user' => Auth::user(), 'personal_info' => $personalInfo]);
         }
 
         return response()->json(['logged_in' => false], 401);
