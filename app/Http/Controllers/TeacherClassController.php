@@ -49,10 +49,6 @@ class TeacherClassController extends Controller
     public function getAllClass(Request $request)
     {
         $user = Auth::user();
-        \Log::info('User Info:', [
-            'idnumber' => $user->idnumber,
-            'usertype' => $user->usertype,
-        ]);
 
         $perPage = $request->query('perPage', 10); // default 10 items per page
         $query = null;

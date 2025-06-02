@@ -207,17 +207,32 @@ class UserController extends Controller
 
     public function getStudents(Request $request)
     {
+        $perPage = $request->query('perPage', 10);  // default 10 per page
 
-        $students = Students::get();
-        return response()->json($students);
+        $paginated = Students::paginate($perPage);
+
+        return response()->json([
+            'total' => $paginated->total(),
+            'per_page' => $paginated->perPage(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'students' => $paginated->items(),
+        ], 200);
     }
 
     public function getTeachers(Request $request)
     {
-        // Fetch all TeacherClass records
-        $teachers = Teachers::get();
+        $perPage = $request->query('perPage', 10);  // default 10 per page
 
-        return response()->json($teachers);
+        $paginated = Teachers::paginate($perPage);
+
+        return response()->json([
+            'total' => $paginated->total(),
+            'per_page' => $paginated->perPage(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'teachers' => $paginated->items(),
+        ], 200);
     }
 
     public function getCurrentUser(Request $request)
