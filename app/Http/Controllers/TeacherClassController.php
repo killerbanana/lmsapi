@@ -49,16 +49,31 @@ class TeacherClassController extends Controller
     public function getAllClass(Request $request)
     {
         $user = Auth::user();
+        \Log::info('User Info:', [
+            'idnumber' => $user->idnumber,
+            'usertype' => $user->usertype,
+        ]);
+
+        $perPage = $request->query('perPage', 10); // default 10 items per page
+        $query = null;
 
         if ($user->usertype === 'Administrator') {
-            // Administrator sees all classes
-            $lessons = TeacherClass::all();
+            // Admin sees all classes
+            $query = Classes::query();
         } else {
             // Others see only their own classes
-            $lessons = TeacherClass::where('idnumber', $user->idnumber)->get();
+            $query = TeacherClass::where('idnumber', $user->idnumber);
         }
 
-        return response()->json(['classes' => $lessons], 200);
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'total' => $paginated->total(),
+            'per_page' => $paginated->perPage(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'classes' => $paginated->items(),
+        ], 200);
     }
 
 }

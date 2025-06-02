@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Models\Admin;
 use App\Models\Students;
 use App\Models\Teachers;
 use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TeacherClass;
+
 
 class UserController extends Controller
 {
@@ -179,10 +181,26 @@ class UserController extends Controller
         // Create a token using Sanctum
         $token = $user->createToken('auth_token', $abilities)->plainTextToken;
 
+        switch ($user->usertype) {
+        case 'Administrator':
+            $personalInfo = Admin::where('idnumber', $user->idnumber)->first();
+            break;
+        case 'Teacher':
+            $personalInfo = Teachers::where('idnumber', $user->idnumber)->first();
+            break;
+        case 'Student':
+            $personalInfo = Students::where('idnumber', $user->idnumber)->first();
+            break;
+        default:
+            // Optionally handle unexpected usertype
+            $personalInfo = null;
+    }
+
         return response()->json([
             'message' => 'Login successful',
             'token' => $token,
             'user' => $user,
+            'personal_info' => $personalInfo
         ]);
     }
 

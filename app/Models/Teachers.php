@@ -19,6 +19,7 @@ class Teachers extends Model
         'gender', 
         'birthdate', 
         'address', 
+        'picture',
     ];
 
     // If your table has the default created_at and updated_at columns

@@ -4,15 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Students extends Model
+class Admin extends Model
 {
     // The table associated with the model
-    protected $table = 'students';  // Optional, only if the table name is different from the plural form of the model name
+    protected $table = 'admin';  // Optional, only if the table name is different from the plural form of the model name
 
     // The attributes that are mass assignable
     protected $fillable = [
         'idnumber', 
-        'section', 
         'firstname', 
         'lastname', 
         'email', 
@@ -20,10 +19,6 @@ class Students extends Model
         'gender', 
         'birthdate', 
         'address', 
-        'fathername', 
-        'fathercontact', 
-        'mothername', 
-        'mothercontact',
         'picture',
     ];
 
@@ -38,5 +33,4 @@ class Students extends Model
     {
         return $this->belongsTo(User::class, 'idnumber', 'idnumber');
     }
-    
 }

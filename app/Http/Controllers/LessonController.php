@@ -54,36 +54,36 @@ class LessonController extends Controller
 
     public function getAllLessons(Request $request)
     {
-    try {
-        $classId = $request->query('classId');
-        $user = Auth::user();
+        try {
+            $classId = $request->query('classId');
+            $perPage = $request->query('perPage', 10); // default to 10 per page
+            $user = Auth::user();
 
-        // If Administrator and no classId given, return all lessons
-        if ($user->usertype === 'Administrator' && !$classId) {
-            $lessons = Lessons::all();
-        } else {
-            // Build query for other cases
+            // Build base query
             $query = Lessons::query();
 
-            // If not Administrator, restrict to their own lessons
             if ($user->usertype !== 'Administrator') {
                 $query->where('idnumber', $user->idnumber);
             }
 
-            // Filter by classId if provided
             if ($classId) {
                 $query->where('class_id', $classId);
             }
 
-            $lessons = $query->get();
-        }
+            $paginated = $query->paginate($perPage);
 
-        return response()->json(['lessons' => $lessons], 200);
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'lessons' => $paginated->items(),
+            ], 200);
 
-    } catch (Exception $e) {
-        return response()->json([
-            'message' => 'An error occurred while fetching lessons.',
-            'error' => config('app.debug') ? $e->getMessage() : 'Server error'
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'An error occurred while fetching lessons.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error'
             ], 500);
         }
     }

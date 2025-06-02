@@ -22,5 +22,13 @@ class AdminUserSeeder extends Seeder
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        DB::table('admin')->insert([
+            'idnumber' => 'ADM001',
+            'email' => 'admin@example.com',
+            'photo' => 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSn8fHaLdaUpKOKTfHYd0KekveFT5Qu01D7sQ&s',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }
