@@ -6,6 +6,7 @@ use App\Http\Controllers\ClassesController;
 use App\Http\Controllers\StudentClassController;
 use App\Http\Controllers\TeacherClassController;
 use App\Http\Controllers\LessonController;
+use App\Http\Controllers\StudentSubjectController;
 
 // Default fallback route
 Route::get('/', function () {
@@ -17,6 +18,9 @@ Route::post('/login', [UserController::class, 'login']);
 
 // Protected Routes (Sanctum Auth)
 Route::middleware('auth:sanctum')->group(function () {
+
+    //Uer
+    Route::get('/currentuser', [UserController::class, 'getCurrentUser']);
 
     // Registration Routes
     Route::post('/register/student', [UserController::class, 'registerStudent'])
@@ -32,11 +36,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/lessons', [LessonController::class, 'getAllLessons'])
         ->middleware('check.ability:view-lessons');
 
-    Route::post('/subject/assign/student', [StudentSubjectController::class, 'assignStudentToSubject'])
-        ->middleware('check.ability:subject-assign-student');
+    // Route::post('/subject/assign/student', [StudentSubjectController::class, 'assignStudentToSubject'])
+    //     ->middleware('check.ability:subject-assign-student');
 
-    Route::post('/subject/assign/teacher', [StudentSubjectController::class, 'assignTeacherToSubject'])
-        ->middleware('check.ability:subject-assign-teacher');
+    // Route::post('/subject/assign/teacher', [StudentSubjectController::class, 'assignTeacherToSubject'])
+    //     ->middleware('check.ability:subject-assign-teacher');
 
     // Class Routes
     Route::post('/class/create', [ClassesController::class, 'createClass'])
@@ -53,4 +57,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/class/assign/subject', [TeacherClassController::class, 'assignTeacherToClass'])
         ->middleware('check.ability:class-assign-teacher');
+        
+    //Teachers
+    Route::get('/teachers', [UserController::class, 'getTeachers'])
+    ->middleware('check.ability:view-teachers');
+
+    //Students
+    Route::get('/students', [UserController::class, 'getStudents'])
+    ->middleware('check.ability:view-students');
 });

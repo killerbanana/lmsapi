@@ -9,6 +9,8 @@ use App\Models\Students;
 use App\Models\Teachers;
 use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
+use Illuminate\Support\Facades\Auth;
+use App\Models\TeacherClass;
 
 class UserController extends Controller
 {
@@ -185,17 +187,26 @@ class UserController extends Controller
     }
 
 
-    public function getStudents()
+    public function getStudents(Request $request)
     {
-        // Check if authenticated user has 'view-students' ability
-        if (!Auth::user()->tokenCan('view-students')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
 
-        // Fetch users with usertype = Student
-        $students = User::where('usertype', 'Student')->get();
-
+        $students = Students::get();
         return response()->json($students);
+    }
+
+    public function getTeachers(Request $request)
+    {
+        // Fetch all TeacherClass records
+        $teachers = Teachers::get();
+
+        return response()->json($teachers);
+    }
+
+    public function getCurrentUser(Request $request)
+    {
+        // Fetch all TeacherClass records
+        $user = $request->user(); // Automatically resolved from token
+        return response()->json($user);
     }
 
 }
