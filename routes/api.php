@@ -68,4 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
     //Students
     Route::get('/students', [UserController::class, 'getStudents'])
     ->middleware('check.ability:view-students');
+
+    //Students
+    Route::get('/parents', [UserController::class, 'getparents'])
+    ->middleware('check.ability:view-parents');
 });

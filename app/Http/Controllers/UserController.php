@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Admin;
 use App\Models\Students;
 use App\Models\Teachers;
+use App\Models\Parents;
 use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
 use Illuminate\Support\Facades\Auth;
@@ -42,7 +43,6 @@ class UserController extends Controller
 
     public function registerStudent(Request $request)
     {
-        // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'username' => 'required|string|unique:users,username',
             'idnumber' => 'required|string|unique:users,idnumber',
@@ -65,40 +65,94 @@ class UserController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        // Create the user
-        $user = User::create([
-            'username' => $request->username,
-            'idnumber' => $request->idnumber,
-            'email' => $request->email,
-            'password' => bcrypt($request->password),
-            'usertype' => 'Student',
-        ]);
+        // Start DB transaction
+        \DB::beginTransaction();
 
-        
-        $personalInfo = Students::updateOrCreate(
-            ['idnumber' => $user->idnumber],  // Check if the idnumber exists
-            [
-                'section' => $request->section,
-                'firstname' => $request->firstname,
-                'lastname' => $request->lastname,
+        try {
+            // Create Student User
+            $studentUser = User::create([
+                'username' => $request->username,
+                'idnumber' => $request->idnumber,
                 'email' => $request->email,
-                'phone' => $request->phone,
-                'gender' => $request->gender,
-                'birthdate' => $request->birthdate,
-                'address' => $request->address,
-                'fathername' => $request->fathername,
-                'fathercontact' => $request->fathercontact,
-                'mothername' => $request->mothername,
-                'mothercontact' => $request->mothercontact,
-            ]
-        );
+                'password' => bcrypt($request->password),
+                'usertype' => 'Student',
+            ]);
 
-        return response()->json([
-            'message' => 'Student account created successfully!',
-            'idnumber' => $personalInfo->idnumber
-        ], 201);
+            // Store student personal info
+            $personalInfo = Students::updateOrCreate(
+                ['idnumber' => $studentUser->idnumber],
+                [
+                    'section' => $request->section,
+                    'firstname' => $request->firstname,
+                    'lastname' => $request->lastname,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'gender' => $request->gender,
+                    'birthdate' => $request->birthdate,
+                    'address' => $request->address,
+                    'fathername' => $request->fathername,
+                    'fathercontact' => $request->fathercontact,
+                    'mothername' => $request->mothername,
+                    'mothercontact' => $request->mothercontact,
+                ]
+            );
+
+            // Register father user and parent record
+            if ($request->filled('fathername') || $request->filled('fathercontact')) {
+                $fatherId = $studentUser->idnumber . '-father';
+
+                User::create([
+                    'username' => $fatherId,
+                    'idnumber' => $fatherId,
+                    'email' => $fatherId . '@example.com', // Placeholder email
+                    'password' => bcrypt('parent123'), // Default password
+                    'usertype' => 'Parent',
+                ]);
+
+                Parents::create([
+                    'idnumber' => $fatherId,
+                    'firstname' => $request->fathername,
+                    'lastname' => $request->lastname,
+                    'email' => $fatherId . '@example.com',
+                    'phone' => $request->fathercontact,
+                    'linked_id' => $studentUser->idnumber,
+                ]);
+            }
+
+            // Register mother user and parent record
+            if ($request->filled('mothername') || $request->filled('mothercontact')) {
+                $motherId = $studentUser->idnumber . '-mother';
+
+                User::create([
+                    'username' => $motherId,
+                    'idnumber' => $motherId,
+                    'email' => $motherId . '@example.com',
+                    'password' => bcrypt('parent123'),
+                    'usertype' => 'Parent',
+                ]);
+
+                Parents::create([
+                    'idnumber' => $motherId,
+                    'firstname' => $request->mothername,
+                    'lastname' => $request->lastname,
+                    'email' => $motherId . '@example.com',
+                    'phone' => $request->mothercontact,
+                    'linked_id' => $studentUser->idnumber,
+                ]);
+            }
+
+            \DB::commit();
+
+            return response()->json([
+                'message' => 'Student and parent accounts created successfully!',
+                'idnumber' => $personalInfo->idnumber,
+            ], 201);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['error' => 'Registration failed', 'details' => $e->getMessage()], 500);
+        }
     }
-
 
     public function registerTeacher(Request $request)
     {
@@ -232,6 +286,21 @@ class UserController extends Controller
             'current_page' => $paginated->currentPage(),
             'last_page' => $paginated->lastPage(),
             'teachers' => $paginated->items(),
+        ], 200);
+    }
+
+    public function getParents(Request $request)
+    {
+        $perPage = $request->query('perPage', 10);  // default 10 per page
+
+        $paginated = Parents::paginate($perPage);
+
+        return response()->json([
+            'total' => $paginated->total(),
+            'per_page' => $paginated->perPage(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'parents' => $paginated->items(),
         ], 200);
     }
 
