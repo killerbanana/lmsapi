@@ -17,6 +17,7 @@ Route::get('/', function () {
 });
 
 Route::post('/send-otp', [OtpController::class, 'sendOtp']);
+Route::post('/verify-otp', [OtpController::class, 'verifyOtp']);
 
 // Public Auth Route
 Route::post('/login', [UserController::class, 'login']);

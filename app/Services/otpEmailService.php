@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use SendGrid;
 use SendGrid\Mail\Mail;
+use GuzzleHttp\Client;
 
 class OtpEmailService
 {
@@ -11,7 +11,13 @@ class OtpEmailService
 
     public function __construct()
     {
-        $this->sendgrid = new SendGrid(env('SENDGRID_API_KEY'));
+        // Create Guzzle client with SSL verification disabled (dev only)
+        $guzzleClient = new Client([
+            'verify' => false,
+        ]);
+
+        // Inject Guzzle client into SendGrid client via 'http_client' option
+        $this->sendgrid = new \SendGrid(env('SENDGRID_API_KEY'), ['http_client' => $guzzleClient]);
     }
 
     public function sendOtp(string $toEmail, string $toName, string $otp): array
@@ -31,6 +37,7 @@ class OtpEmailService
 
         try {
             $response = $this->sendgrid->send($email);
+
             return [
                 'success' => $response->statusCode() === 202,
                 'message' => 'Sent',
@@ -38,9 +45,8 @@ class OtpEmailService
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => $e->getMessage(), // error message from SendGrid
+                'message' => $e->getMessage(),
             ];
         }
     }
-
 }

@@ -28,4 +28,19 @@ class otpController extends Controller
             'message' => $sent ? 'OTP sent successfully' : 'Failed to send OTP'
         ]);
     }
+
+    public function verifyOtp(Request $request)
+    {
+        $email = $request->input('email');
+        $otp = $request->input('otp');
+
+        $cachedOtp = Cache::get("otp_{$email}");
+
+        if ($cachedOtp && $cachedOtp == $otp) {
+            Cache::forget("otp_{$email}");
+            return response()->json(['success' => true, 'message' => 'OTP verified']);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Invalid or expired OTP']);
+    }
 }
