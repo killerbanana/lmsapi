@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TeacherClass;
+use Illuminate\Support\Facades\Cache;
 
 
 class UserController extends Controller
@@ -365,6 +366,8 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'current_password' => 'required|string',
             'new_password' => 'required|string|min:8|confirmed',
+            'email' => 'required|email',
+            'otp' => 'required|string',
         ]);
 
         if ($validator->fails()) {
@@ -377,6 +380,17 @@ class UserController extends Controller
             return response()->json(['message' => 'User not found.'], 404);
         }
 
+        // Check email matches user
+        if ($request->email !== $user->email) {
+            return response()->json(['message' => 'Email does not match user.'], 400);
+        }
+
+        // Verify OTP
+        $cachedOtp = Cache::get("otp_{$request->email}");
+        if (!$cachedOtp || $cachedOtp != $request->otp) {
+            return response()->json(['message' => 'Invalid or expired OTP.'], 401);
+        }
+
         // Check current password
         if (!Hash::check($request->current_password, $user->password)) {
             return response()->json(['message' => 'Current password is incorrect.'], 403);
@@ -385,6 +399,9 @@ class UserController extends Controller
         // Update password
         $user->password = bcrypt($request->new_password);
         $user->save();
+
+        // Remove used OTP
+        Cache::forget("otp_{$request->email}");
 
         return response()->json(['message' => 'Password changed successfully.']);
     }
