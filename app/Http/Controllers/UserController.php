@@ -153,6 +153,114 @@ class UserController extends Controller
             return response()->json(['error' => 'Registration failed', 'details' => $e->getMessage()], 500);
         }
     }
+    public function deleteParent($idnumber)
+    {
+        try {
+            $deleted = User::where('idnumber', $idnumber)->delete();
+
+            if ($deleted) {
+                return response()->json(['message' => 'Parent deleted successfully.']);
+            } else {
+                return response()->json(['error' => 'Parent not found.'], 404);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateParentInfo(Request $request, $idnumber)
+    {
+        $validator = Validator::make($request->all(), [
+            'firstname' => 'nullable|string',
+            'lastname' => 'nullable|string',
+            'phone' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $parent = Parents::where('idnumber', $idnumber)->first();
+
+        if (!$parent) {
+            return response()->json(['message' => 'Parent not found.'], 404);
+        }
+
+        $parent->update($request->only(['firstname', 'lastname', 'phone']));
+
+        return response()->json(['message' => 'Parent info updated successfully.']);
+    }
+
+    public function updateStudentInfo(Request $request, $idnumber)
+    {
+        $validator = Validator::make($request->all(), [
+            'section' => 'nullable|string',
+            'firstname' => 'nullable|string',
+            'lastname' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'gender' => 'nullable|in:male,female,other',
+            'birthdate' => 'nullable|date',
+            'address' => 'nullable|string',
+            'fathername' => 'nullable|string',
+            'fathercontact' => 'nullable|string',
+            'mothername' => 'nullable|string',
+            'mothercontact' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $student = Students::where('idnumber', $idnumber)->first();
+
+        if (!$student) {
+            return response()->json(['message' => 'Student not found.'], 404);
+        }
+
+        $student->update($request->only([
+            'section',
+            'firstname',
+            'lastname',
+            'phone',
+            'gender',
+            'birthdate',
+            'address',
+            'fathername',
+            'fathercontact',
+            'mothername',
+            'mothercontact',
+        ]));
+
+        return response()->json(['message' => 'Student personal info updated successfully.']);
+    }
+
+
+
+    public function deleteStudent($idnumber)
+    {
+        \DB::beginTransaction();
+
+        try {
+            // Delete Parent users (will auto-delete from parents table due to cascade)
+            foreach (['father', 'mother'] as $relation) {
+                $parentId = $idnumber . '-' . $relation;
+                User::where('idnumber', $parentId)->delete();
+            }
+
+            // Delete Student user (cascades to students table)
+            User::where('idnumber', $idnumber)->delete();
+
+            \DB::commit();
+            return response()->json(['message' => 'Student and parents deleted successfully.']);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
+        }
+    }
+
+
 
     public function registerTeacher(Request $request)
     {
@@ -200,6 +308,87 @@ class UserController extends Controller
             'idnumber' => $personalInfo->idnumber
         ], 201);
     }
+
+    public function deleteTeacher($idnumber)
+    {
+        try {
+            $deleted = User::where('idnumber', $idnumber)->delete();
+
+            if ($deleted) {
+                return response()->json(['message' => 'Teacher deleted successfully.']);
+            } else {
+                return response()->json(['error' => 'Teacher not found.'], 404);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function updateTeacherInfo(Request $request, $idnumber)
+    {
+        // Validate only teacher personal info fields
+        $validator = Validator::make($request->all(), [
+            'firstname' => 'nullable|string',
+            'lastname' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'gender' => 'nullable|in:male,female,other',
+            'birthdate' => 'nullable|date',
+            'address' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $teacher = Teachers::where('idnumber', $idnumber)->first();
+
+        if (!$teacher) {
+            return response()->json(['message' => 'Teacher info not found.'], 404);
+        }
+
+        $teacher->update($request->only([
+            'firstname',
+            'lastname',
+            'phone',
+            'gender',
+            'birthdate',
+            'address'
+        ]));
+
+        return response()->json(['message' => 'Teacher personal info updated successfully.']);
+    }
+
+    public function changePassword(Request $request, $idnumber)
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $user = User::where('idnumber', $idnumber)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // Check current password
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'Current password is incorrect.'], 403);
+        }
+
+        // Update password
+        $user->password = bcrypt($request->new_password);
+        $user->save();
+
+        return response()->json(['message' => 'Password changed successfully.']);
+    }
+
 
     public function login(Request $request)
     {

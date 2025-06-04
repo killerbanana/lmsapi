@@ -24,6 +24,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/currentuser', [UserController::class, 'getCurrentUser']);
 
     Route::get('/check-auth', [UserController::class, 'checkAuthStatus']);
+
+    Route::put('/user/{idnumber}/change-password', [UserController::class, 'changePassword'])
+    ->middleware('auth:sanctum'); 
     
     // Registration Routes
     Route::post('/register/student', [UserController::class, 'registerStudent'])
@@ -64,12 +67,30 @@ Route::middleware('auth:sanctum')->group(function () {
     //Teachers
     Route::get('/teachers', [UserController::class, 'getTeachers'])
     ->middleware('check.ability:view-teachers');
+    
+    Route::put('/teacher/{idnumber}', [UserController::class, 'updateTeacherInfo'])
+    ->middleware('check.ability:update-teacher');
+
+    Route::delete('/teacher/{idnumber}', [UserController::class, 'deleteTeacher'])
+        ->middleware('check.ability:delete-teacher');
 
     //Students
     Route::get('/students', [UserController::class, 'getStudents'])
     ->middleware('check.ability:view-students');
 
-    //Students
+    Route::put('/student/{idnumber}', [UserController::class, 'updateStudentInfo'])
+    ->middleware('check.ability:update-student');
+
+    Route::delete('/student/{idnumber}', [UserController::class, 'deleteStudent'])
+        ->middleware('check.ability:delete-student');
+
+    //Parents
     Route::get('/parents', [UserController::class, 'getparents'])
     ->middleware('check.ability:view-parents');
+
+    Route::put('/parent/{idnumber}', [UserController::class, 'updateParentInfo'])
+    ->middleware('check.ability:update-parent');
+
+    Route::delete('/parent/{idnumber}', [UserController::class, 'deleteParent'])
+        ->middleware('check.ability:delete-parent');
 });
