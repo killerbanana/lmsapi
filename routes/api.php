@@ -7,6 +7,7 @@ use App\Http\Controllers\StudentClassController;
 use App\Http\Controllers\TeacherClassController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\StudentSubjectController;
+use App\Http\Controllers\OtpController;
 use Illuminate\Support\Facades\Auth;
 
 
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Auth;
 Route::get('/', function () {
     return response()->json(['message' => 'Not Found'], 404);
 });
+
+Route::post('/send-otp', [OtpController::class, 'sendOtp']);
 
 // Public Auth Route
 Route::post('/login', [UserController::class, 'login']);
@@ -93,4 +96,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::delete('/parent/{idnumber}', [UserController::class, 'deleteParent'])
         ->middleware('check.ability:delete-parent');
+
+    //EMAIL
 });
