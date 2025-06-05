@@ -20,10 +20,10 @@ class otpController extends Controller
 
         Cache::put("otp_{$emailTo}", $otp, now()->addMinutes(5));
 
-        $sendgrid = new \SendGrid('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');
+        $sendgrid = new \SendGrid(env('SENDGRID_API_KEY'));
 
         $emailMessage = new \SendGrid\Mail\Mail();
-        $emailMessage->setFrom("rosqueta.joshua@gmail.com", "Example User");
+        $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS ADMIN");
         $emailMessage->setSubject("OTP Code");
         $emailMessage->addTo($emailTo, $name);  // use $emailTo here, not $emailMessage
         $emailMessage->addContent("text/plain", "Your OTP is: {$otp}");
