@@ -87,4 +87,67 @@ class LessonController extends Controller
             ], 500);
         }
     }
+
+    public function updateLesson(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'class_id' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $validated = $validator->validated();
+
+        $lesson = Lessons::find($id);
+
+        if (!$lesson) {
+            return response()->json(['message' => 'Lesson not found.'], 404);
+        }
+
+        if ($lesson->idnumber !== $user->idnumber) {
+            return response()->json(['message' => 'Unauthorized to update this lesson.'], 403);
+        }
+
+        $teacher_exists = TeacherClass::where('class_id', $validated['class_id'])
+            ->where('idnumber', $user->idnumber)
+            ->exists();
+
+        if (!$teacher_exists) {
+            return response()->json(['message' => 'You are not enrolled in this class. Cannot update the lesson.'], 403);
+        }
+
+        $lesson->update([
+            'name' => $validated['name'],
+            'class_id' => $validated['class_id']
+        ]);
+
+        return response()->json(['message' => 'Lesson updated successfully.', 'lesson' => $lesson], 200);
+    }
+
+
+    public function deleteLesson($id)
+    {
+        $user = Auth::user();
+
+        $lesson = Lessons::find($id);
+
+        if (!$lesson) {
+            return response()->json(['message' => 'Lesson not found.'], 404);
+        }
+
+        if ($lesson->idnumber !== $user->idnumber) {
+            return response()->json(['message' => 'Unauthorized to delete this lesson.'], 403);
+        }
+
+        $lesson->delete();
+
+        return response()->json(['message' => 'Lesson deleted successfully.'], 200);
+    }
+
+
 }

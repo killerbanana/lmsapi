@@ -46,11 +46,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/lessons', [LessonController::class, 'getAllLessons'])
         ->middleware('check.ability:view-lessons');
 
-    // Route::post('/subject/assign/student', [StudentSubjectController::class, 'assignStudentToSubject'])
-    //     ->middleware('check.ability:subject-assign-student');
-
-    // Route::post('/subject/assign/teacher', [StudentSubjectController::class, 'assignTeacherToSubject'])
-    //     ->middleware('check.ability:subject-assign-teacher');
+    Route::put('/lessons/{id}', [LessonsController::class, 'updateLesson'])->middleware('check.ability:update-lessons');
+    Route::delete('/lessons/{id}', [LessonsController::class, 'deleteLesson'])->middleware('check.ability:delete-lessons');
 
     // Class Routes
     Route::post('/class/create', [ClassesController::class, 'createClass'])
@@ -67,6 +64,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/class/assign/subject', [TeacherClassController::class, 'assignTeacherToClass'])
         ->middleware('check.ability:class-assign-teacher');
+
+    Route::put('/classes/{id}', [ClassesController::class, 'updateClass'])->middleware('check.ability:update-clas');
+    Route::delete('/classes/{id}', [ClassesController::class, 'deleteClass'])->middleware('check.ability:delete-class');
         
     //Teachers
     Route::get('/teachers', [UserController::class, 'getTeachers'])
