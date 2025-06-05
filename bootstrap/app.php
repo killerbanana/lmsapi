@@ -4,6 +4,7 @@ use App\Http\Middleware\CheckAbility;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,23 +14,28 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Register your middleware alias here
         $middleware->alias([
             'check.ability' => CheckAbility::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Force JSON error response for API routes
         $exceptions->render(function (Throwable $exception, $request) {
+            // Log full error
+            Log::error('Exception occurred', [
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
             if ($request->expectsJson() || str_starts_with($request->getPathInfo(), '/api')) {
-                // Return a simple JSON error response without stack trace
                 return response()->json([
                     'message' => 'An error occurred.',
-                    'error' => config('app.debug') ? $exception->getMessage() : 'Server Error'
-                ], method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 401);
+                    'error' => config('app.debug') ? $exception->getMessage() : 'Server Error',
+                    'trace' => config('app.debug') ? $exception->getTrace() : null,
+                ], method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 500);
             }
 
-            // Default HTML error for non-API routes
             return response()->view('errors.500', [], 500);
         });
     })
