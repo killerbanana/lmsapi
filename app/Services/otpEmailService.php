@@ -4,6 +4,7 @@ namespace App\Services;
 
 use SendGrid\Mail\Mail;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 
 class OtpEmailService
 {
@@ -11,13 +12,14 @@ class OtpEmailService
 
     public function __construct()
     {
-        // Create Guzzle client with SSL verification disabled (dev only)
+        // ❗ Avoid disabling SSL in production
         $guzzleClient = new Client([
-            'verify' => false,
+            'verify' => env('SENDGRID_SSL_VERIFY', true),
         ]);
 
-        // Inject Guzzle client into SendGrid client via 'http_client' option
-        $this->sendgrid = new \SendGrid(env('SENDGRID_API_KEY'), ['http_client' => $guzzleClient]);
+        $this->sendgrid = new \SendGrid(env('SENDGRID_API_KEY'), [
+            'http_client' => $guzzleClient,
+        ]);
     }
 
     public function sendOtp(string $toEmail, string $toName, string $otp): array
@@ -38,14 +40,26 @@ class OtpEmailService
         try {
             $response = $this->sendgrid->send($email);
 
+            // Log full response for debugging
+            Log::info('SendGrid OTP Email Sent', [
+                'to' => $toEmail,
+                'status' => $response->statusCode(),
+                'body' => $response->body(),
+            ]);
+
             return [
                 'success' => $response->statusCode() === 202,
-                'message' => 'Sent',
+                'message' => $response->statusCode() === 202 ? 'OTP sent successfully' : 'SendGrid did not accept the message.',
             ];
         } catch (\Exception $e) {
+            Log::error('SendGrid OTP Email Failed', [
+                'to' => $toEmail,
+                'error' => $e->getMessage(),
+            ]);
+
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'SendGrid error: ' . $e->getMessage(),
             ];
         }
     }
