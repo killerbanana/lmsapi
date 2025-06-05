@@ -27,10 +27,19 @@ class otpController extends Controller
         $sendgrid = new \SendGrid(env('SENDGRID_API_KEY'));
 
         $emailMessage = new \SendGrid\Mail\Mail();
-        $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS ADMIN");
-        $emailMessage->setSubject("OTP Code");
-        $emailMessage->addTo($emailTo, $name);  // use $emailTo here, not $emailMessage
-        $emailMessage->addContent("text/plain", "Your OTP is: {$otp}!");
+        $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS Admin");
+        $emailMessage->setSubject("Password Change Request");
+        $emailMessage->addTo($emailTo, $name);
+
+        $plainTextContent = "Hello {$name},\n\n"
+            . "We received a request to change your password. Your One-Time Password (OTP) is:\n\n"
+            . "{$otp}\n\n"
+            . "This code is valid for the next 5 minutes.\n\n"
+            . "If you did not request a password change, please ignore this email or contact support immediately.\n\n"
+            . "Best regards,\n"
+            . "LMS Admin Team";
+
+        $emailMessage->addContent("text/plain", $plainTextContent);
 
         try {
             $response = $sendgrid->send($emailMessage);
