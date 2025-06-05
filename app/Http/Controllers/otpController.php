@@ -18,6 +18,10 @@ class otpController extends Controller
         $name = $request->input('name', 'User');
         $otp = rand(100000, 999999);
 
+        $apiKey = env('SENDGRID_API_KEY');
+        if (!$apiKey) {
+            return response()->json(['error' => 'SendGrid API key not set']);
+        }
         Cache::put("otp_{$emailTo}", $otp, now()->addMinutes(5));
 
         $sendgrid = new \SendGrid(env('SENDGRID_API_KEY'));
@@ -26,7 +30,7 @@ class otpController extends Controller
         $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS ADMIN");
         $emailMessage->setSubject("OTP Code");
         $emailMessage->addTo($emailTo, $name);  // use $emailTo here, not $emailMessage
-        $emailMessage->addContent("text/plain", "Your OTP is: {$otp}");
+        $emailMessage->addContent("text/plain", "Your OTP is: {$otp}!");
 
         try {
             $response = $sendgrid->send($emailMessage);
