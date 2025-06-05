@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
@@ -8,26 +7,45 @@ use Illuminate\Http\Request;
 
 class otpController extends Controller
 {
-    public function sendOtp(Request $request, OtpEmailService $otpEmailService)
+    public function sendOtp(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
             'name' => 'nullable|string'
         ]);
 
-        $email = $request->input('email');
+        $emailTo = $request->input('email');
         $name = $request->input('name', 'User');
         $otp = rand(100000, 999999);
 
-        Cache::put("otp_{$email}", $otp, now()->addMinutes(5));
+        Cache::put("otp_{$emailTo}", $otp, now()->addMinutes(5));
 
-        $sent = $otpEmailService->sendOtp($email, $name, $otp);
+        $sendgrid = new \SendGrid(env('SENDGRID_API_KEY'));
 
-        return response()->json([
-            'success' => $sent,
-            'message' => $sent ? 'OTP sent successfully' : 'Failed to send OTP'
-        ]);
+        $emailMessage = new \SendGrid\Mail\Mail();
+        $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS ADMIN");
+        $emailMessage->setSubject("OTP Code");
+        $emailMessage->addTo($emailTo, $name);  // use $emailTo here, not $emailMessage
+        $emailMessage->addContent("text/plain", "Your OTP is: {$otp}");
+
+        try {
+            $response = $sendgrid->send($emailMessage);
+
+            return response()->json([
+                'success' => $response->statusCode() === 202,
+                'message' => $response->statusCode() === 202 ? 'OTP sent successfully!' : 'Failed to send OTP',
+                'statusCode' => $response->statusCode(),
+                'responseBody' => $response->body(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'SendGrid Exception: ' . $e->getMessage(),
+            ]);
+        }
     }
+
+
 
     public function verifyOtp(Request $request)
     {
