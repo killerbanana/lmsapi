@@ -105,6 +105,6 @@ Route::middleware('auth:sanctum')->group(function () {
     //SECTION
     Route::post('/section', [SectionController::class, 'create'])
         ->middleware('check.ability:create-section');
-    Route::get('/section', [SectionController::class, 'indexAll'])->middleware('check.ability:create-section');
-    Route::put('/section/{id}', [SectionController::class, 'update'])->middleware('check.ability:create-section');
+    Route::get('/section', [SectionController::class, 'indexAll'])->middleware('check.ability:view-section');
+    Route::put('/section/{id}', [SectionController::class, 'update'])->middleware('check.ability:update-section');
 });

@@ -8,6 +8,7 @@ use App\Services\RoleAbilitiesService;
 use App\Models\Teachers;
 use App\Models\Classes;
 use App\Models\TeacherClass;
+use App\Models\StudentClass;
 use Illuminate\Support\Facades\Auth;
 
 class TeacherClassController extends Controller
@@ -56,7 +57,13 @@ class TeacherClassController extends Controller
         if ($user->usertype === 'Administrator') {
             // Admin sees all classes
             $query = Classes::query();
-        } else {
+        } 
+
+        if($user->usertype === 'Student'){
+            $query = StudentClass::where('idnumber', $user->idnumber);
+        }
+        
+        else {
             // Others see only their own classes
             $query = TeacherClass::where('idnumber', $user->idnumber);
         }

@@ -106,20 +106,31 @@ class SectionController extends Controller
 
     public function indexAll(Request $request)
     {
-        $userIdnumber = auth()->user()->idnumber;
+        $user = auth()->user();
+        $userIdnumber = $user->idnumber;
+        $userType = $user->usertype;
         $perPage = max(1, min((int) $request->get('per_page', 10), 100));
         $lessonId = $request->get('lesson_id'); // optional filter
 
-        $query = Section::whereHas('lesson', function ($query) use ($userIdnumber, $lessonId) {
-            $query->where('idnumber', $userIdnumber);
-            if ($lessonId) {
-                $query->where('id', $lessonId);
+        $query = Section::with('resources', 'completionActions');
+
+        $query->whereHas('lesson', function ($q) use ($userType, $userIdnumber, $lessonId) {
+            if ($userType === 'Instructor') {
+                $q->where('idnumber', $userIdnumber);
+            } elseif ($userType === 'Student') {
+                $classIds = \App\Models\StudentClass::where('idnumber', $userIdnumber)
+                            ->pluck('class_id');
+                $q->whereIn('class_id', $classIds);
             }
-        })
-        ->with('resources', 'completionActions');
+
+            if ($lessonId) {
+                $q->where('id', $lessonId);
+            }
+        });
 
         $sections = $query->paginate($perPage);
 
         return response()->json($sections);
     }
+
 }

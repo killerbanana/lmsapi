@@ -7,7 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\Lessons;
 use App\Models\Classes;
 use App\Models\TeacherClass;
+use App\Models\StudentClass;
 use Illuminate\Support\Facades\Auth;
+
 
 
 class LessonController extends Controller
@@ -52,22 +54,36 @@ class LessonController extends Controller
         return response()->json(['message' => 'Lesson created successfully', 'lesson' => $lesson], 201);
     }
 
-    public function getAllLessons(Request $request)
+   public function getAllLessons(Request $request)
     {
         try {
             $classId = $request->query('classId');
-            $perPage = $request->query('perPage', 10); // default to 10 per page
+            $perPage = $request->query('perPage', 10);
             $user = Auth::user();
 
-            // Build base query
             $query = Lessons::query();
 
-            if ($user->usertype !== 'Administrator') {
-                $query->where('idnumber', $user->idnumber);
-            }
+            if ($user->usertype === 'Administrator') {
+                // Admin can see all lessons
+                if ($classId) {
+                    $query->where('class_id', $classId);
+                }
 
-            if ($classId) {
-                $query->where('class_id', $classId);
+            } elseif ($user->usertype === 'Teacher') {
+                // Instructor can see only their own lessons
+                $query->where('idnumber', $user->idnumber);
+                if ($classId) {
+                    $query->where('class_id', $classId);
+                }
+
+            } elseif ($user->usertype === 'Student') {
+                // Get class_ids from student_classes where the student is enrolled
+                $classIds = StudentClass::where('idnumber', $user->idnumber)->pluck('class_id');
+
+                $query->whereIn('class_id', $classIds);
+                if ($classId) {
+                    $query->where('class_id', $classId); // narrow down further if specific classId is requested
+                }
             }
 
             $paginated = $query->paginate($perPage);
