@@ -71,5 +71,4 @@ class TeacherClassController extends Controller
             'classes' => $paginated->items(),
         ], 200);
     }
-
 }

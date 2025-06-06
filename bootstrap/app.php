@@ -32,7 +32,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'An error occurred.',
                     'error' => config('app.debug') ? $exception->getMessage() : 'Server Error',
-                    'trace' => config('app.debug') ? $exception->getTrace() : null,
                 ], method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 500);
             }
 

@@ -42,43 +42,52 @@ class ClassesController extends Controller
 
     public function updateClass(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
+        try
+        {
+            $validator = Validator::make($request->all(), [
             'class_name' => 'required|string|max:255',
             'description' => 'nullable|string',
-        ]);
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            if ($validator->fails()) {
+                return response()->json($validator->errors(), 422);
+            }
+
+            $class = Classes::where('class_id', $id)->first();
+
+            if (!$class) {
+                return response()->json(['message' => 'Class not found'], 404);
+            }
+
+            $class->update([
+                'class_name' => $request->class_name,
+                'description' => $request->description,
+            ]);
+
+            return response()->json([
+                'message' => 'Class updated successfully',
+                'data' => $class
+            ], 200);
+        
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
         }
-
-        $class = Classes::find($id);
-
-        if (!$class) {
-            return response()->json(['message' => 'Class not found'], 404);
-        }
-
-        $class->update([
-            'class_name' => $request->class_name,
-            'description' => $request->description,
-        ]);
-
-        return response()->json([
-            'message' => 'Class updated successfully',
-            'data' => $class
-        ], 200);
     }
-
     public function deleteClass($id)
     {
-        $class = Classes::find($id);
+        try {
+            $class = Classes::where('class_id', $id)->first();
 
-        if (!$class) {
-            return response()->json(['message' => 'Class not found'], 404);
+            if (!$class) {
+                return response()->json(['message' => 'Class not found'], 404);
+            }
+
+            $class->delete();
+
+            return response()->json(['message' => 'Class deleted successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
         }
-
-        $class->delete();
-
-        return response()->json(['message' => 'Class deleted successfully'], 200);
     }
 
 
