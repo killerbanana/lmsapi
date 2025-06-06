@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Kreait\Firebase\Factory;
 use Illuminate\Http\Request;
 use App\Models\Lessons;
 use App\Models\Section;
@@ -24,16 +25,19 @@ class SectionController extends Controller
             'introduction' => 'nullable|string',
             'require_for_completion' => 'boolean',
             'completion_time_estimate' => 'nullable|integer|min:1',
-            'resources' => 'nullable|array',
-            'resources.*.name' => 'required|string',
-            'resources.*.url' => 'required|url',
-            'resources.*.type' => 'nullable|string',
+
+            'files' => 'required|array',
+            'files.*' => 'file|max:10240',
+            'resource_names' => 'required|array',
+            'resource_names.*' => 'required|string',
+            'resource_types' => 'nullable|array',
+            'resource_types.*' => 'nullable|string',
+
             'completion_actions' => 'nullable|array',
             'completion_actions.*.action_type' => 'required|string',
             'completion_actions.*.parameters' => 'nullable|array',
         ]);
 
-        // ✅ Ensure current user owns the lesson
         $userIdnumber = auth()->user()->idnumber;
         $lesson = Lessons::where('id', $validated['lesson_id'])
                         ->where('idnumber', $userIdnumber)
@@ -43,7 +47,7 @@ class SectionController extends Controller
             abort(403, 'You are not authorized to create a section for this lesson.');
         }
 
-        // Create section
+        // ✅ Create section
         $section = Section::create([
             'lesson_id' => $validated['lesson_id'],
             'title' => $validated['title'],
@@ -52,18 +56,32 @@ class SectionController extends Controller
             'completion_time_estimate' => $validated['completion_time_estimate'] ?? null,
         ]);
 
-        // Attach resources
-        if (!empty($validated['resources'])) {
-            foreach ($validated['resources'] as $res) {
-                $section->resources()->create([
-                    'name' => $res['name'],
-                    'url' => $res['url'],
-                    'type' => $res['type'] ?? 'pdf',
-                ]);
-            }
+        // ✅ Setup Firebase
+        $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+        $bucket = $firebase->createStorage()->getBucket();
+
+        // ✅ Upload files and attach resources
+        foreach ($validated['files'] as $index => $file) {
+            $name = $validated['resource_names'][$index] ?? 'Unnamed';
+            $type = $validated['resource_types'][$index] ?? 'pdf';
+
+            $firebaseFilePath = 'sections/' . uniqid() . '_' . $file->getClientOriginalName();
+
+            $bucket->upload(
+                fopen($file->getRealPath(), 'r'),
+                ['name' => $firebaseFilePath]
+            );
+
+            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+
+            $section->resources()->create([
+                'name' => $name,
+                'url' => $url,
+                'type' => $type,
+            ]);
         }
 
-        // Attach completion actions
+        // ✅ Completion actions
         if (!empty($validated['completion_actions'])) {
             foreach ($validated['completion_actions'] as $action) {
                 $section->completionActions()->create([
@@ -74,8 +92,8 @@ class SectionController extends Controller
         }
 
         return response()->json([
-            'message' => 'Section added.',
-            'data' => $section->load('resources', 'completionActions')
+            'message' => 'Section added with uploaded resources.',
+            'data' => $section->load('resources', 'completionActions'),
         ], 201);
     }
 

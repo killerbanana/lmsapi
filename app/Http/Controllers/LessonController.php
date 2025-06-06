@@ -1,154 +1,169 @@
 <?php
 
 namespace App\Http\Controllers;
-
-use Kreait\Firebase\Factory;
+use Illuminate\Support\Facades\Validator;
+use App\Services\RoleAbilitiesService;
 use Illuminate\Http\Request;
 use App\Models\Lessons;
-use App\Models\Section;
-use App\Models\SectionResource;
+use App\Models\Classes;
+use App\Models\TeacherClass;
+use App\Models\StudentClass;
+use Illuminate\Support\Facades\Auth;
 
-class SectionController extends Controller
+
+
+class LessonController extends Controller
 {
-    public function index(Lesson $lesson)
+    public function createLesson(Request $request)
     {
-        return response()->json(
-            $lesson->sections()->with('resources', 'completionActions')->get()
-        );
-    }
+        $user = Auth::user();
 
-    public function create(Request $request)
-    {
-        $validated = $request->validate([
-            'lesson_id' => 'required|integer|exists:lessons,id',
-            'title' => 'required|string|max:255',
-            'introduction' => 'nullable|string',
-            'require_for_completion' => 'boolean',
-            'completion_time_estimate' => 'nullable|integer|min:1',
-
-            'files' => 'required|array',
-            'files.*' => 'file|max:10240',
-            'resource_names' => 'required|array',
-            'resource_names.*' => 'required|string',
-            'resource_types' => 'nullable|array',
-            'resource_types.*' => 'nullable|string',
-
-            'completion_actions' => 'nullable|array',
-            'completion_actions.*.action_type' => 'required|string',
-            'completion_actions.*.parameters' => 'nullable|array',
+        // Validate the request
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'class_id' => 'required|string|max:255',
         ]);
 
-        $userIdnumber = auth()->user()->idnumber;
-        $lesson = Lessons::where('id', $validated['lesson_id'])
-                        ->where('idnumber', $userIdnumber)
-                        ->first();
+        // If validation fails, return the errors
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // Retrieve validated data
+        $validated = $validator->validated();
+
+        $teacher_exists = TeacherClass::where('class_id', $validated['class_id'])->where('idnumber', $user->idnumber )->exists();
+
+        if (!$teacher_exists) {
+            return response()->json(['message' => 'You are not enrolled in this class. Cannot create a lesson'], 404);
+        }
+
+        $class_exists = Classes::where('class_id', $validated['class_id'])->exists();
+        if (!$class_exists) {
+            return response()->json(['message' => 'Class does not exist.'], 404);
+        }
+
+        // Create the new subject
+        $lesson = Lessons::create([
+            'name' => $validated['name'],
+            'class_id' => $validated['class_id'],
+            'idnumber' => $user->idnumber 
+        ]);
+
+        // Return a JSON response
+        return response()->json(['message' => 'Lesson created successfully', 'lesson' => $lesson], 201);
+    }
+
+   public function getAllLessons(Request $request)
+    {
+        try {
+            $classId = $request->query('classId');
+            $perPage = $request->query('perPage', 10);
+            $user = Auth::user();
+
+            $query = Lessons::query();
+
+            if ($user->usertype === 'Administrator') {
+                // Admin can see all lessons
+                if ($classId) {
+                    $query->where('class_id', $classId);
+                }
+
+            } elseif ($user->usertype === 'Teacher') {
+                // Instructor can see only their own lessons
+                $query->where('idnumber', $user->idnumber);
+                if ($classId) {
+                    $query->where('class_id', $classId);
+                }
+
+            } elseif ($user->usertype === 'Student') {
+                // Get class_ids from student_classes where the student is enrolled
+                $classIds = StudentClass::where('idnumber', $user->idnumber)->pluck('class_id');
+
+                $query->whereIn('class_id', $classIds);
+                if ($classId) {
+                    $query->where('class_id', $classId); // narrow down further if specific classId is requested
+                }
+            }
+
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'lessons' => $paginated->items(),
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'An error occurred while fetching lessons.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error'
+            ], 500);
+        }
+    }
+
+    public function updateLesson(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'class_id' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $validated = $validator->validated();
+
+        $lesson = Lessons::find($id);
 
         if (!$lesson) {
-            abort(403, 'You are not authorized to create a section for this lesson.');
+            return response()->json(['message' => 'Lesson not found.'], 404);
         }
 
-        // ✅ Create section
-        $section = Section::create([
-            'lesson_id' => $validated['lesson_id'],
-            'title' => $validated['title'],
-            'introduction' => $validated['introduction'] ?? null,
-            'require_for_completion' => $validated['require_for_completion'] ?? false,
-            'completion_time_estimate' => $validated['completion_time_estimate'] ?? null,
+        if ($lesson->idnumber !== $user->idnumber) {
+            return response()->json(['message' => 'Unauthorized to update this lesson.'], 403);
+        }
+
+        $teacher_exists = TeacherClass::where('class_id', $validated['class_id'])
+            ->where('idnumber', $user->idnumber)
+            ->exists();
+
+        if (!$teacher_exists) {
+            return response()->json(['message' => 'You are not enrolled in this class. Cannot update the lesson.'], 403);
+        }
+
+        $lesson->update([
+            'name' => $validated['name'],
+            'class_id' => $validated['class_id']
         ]);
 
-        // ✅ Setup Firebase
-        $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-        $bucket = $firebase->createStorage()->getBucket();
-
-        // ✅ Upload files and attach resources
-        foreach ($validated['files'] as $index => $file) {
-            $name = $validated['resource_names'][$index] ?? 'Unnamed';
-            $type = $validated['resource_types'][$index] ?? 'pdf';
-
-            $firebaseFilePath = 'sections/' . uniqid() . '_' . $file->getClientOriginalName();
-
-            $bucket->upload(
-                fopen($file->getRealPath(), 'r'),
-                ['name' => $firebaseFilePath]
-            );
-
-            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
-
-            $section->resources()->create([
-                'name' => $name,
-                'url' => $url,
-                'type' => $type,
-            ]);
-        }
-
-        // ✅ Completion actions
-        if (!empty($validated['completion_actions'])) {
-            foreach ($validated['completion_actions'] as $action) {
-                $section->completionActions()->create([
-                    'action_type' => $action['action_type'],
-                    'parameters' => $action['parameters'] ?? [],
-                ]);
-            }
-        }
-
-        return response()->json([
-            'message' => 'Section added with uploaded resources.',
-            'data' => $section->load('resources', 'completionActions'),
-        ], 201);
+        return response()->json(['message' => 'Lesson updated successfully.', 'lesson' => $lesson], 200);
     }
 
-    public function update(Request $request, $id)
+
+    public function deleteLesson($id)
     {
-        $section = Section::findOrFail($id);
+        $user = Auth::user();
 
-        // Ensure the user owns the lesson this section belongs to
-        $userIdnumber = auth()->user()->idnumber;
-        if ($section->lesson->idnumber !== $userIdnumber) {
-            abort(403, 'You are not authorized to update this section.');
+        $lesson = Lessons::find($id);
+
+        if (!$lesson) {
+            return response()->json(['message' => 'Lesson not found.'], 404);
         }
 
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'introduction' => 'nullable|string',
-            'require_for_completion' => 'boolean',
-            'completion_time_estimate' => 'nullable|integer|min:1',
-        ]);
+        if ($lesson->idnumber !== $user->idnumber) {
+            return response()->json(['message' => 'Unauthorized to delete this lesson.'], 403);
+        }
 
-        $section->update($validated);
+        $lesson->delete();
 
-        return response()->json([
-            'message' => 'Section updated successfully.',
-            'data' => $section
-        ]);
+        return response()->json(['message' => 'Lesson deleted successfully.'], 200);
     }
 
-    public function indexAll(Request $request)
-    {
-        $user = auth()->user();
-        $userIdnumber = $user->idnumber;
-        $userType = $user->usertype;
-        $perPage = max(1, min((int) $request->get('per_page', 10), 100));
-        $lessonId = $request->get('lesson_id'); // optional filter
-
-        $query = Section::with('resources', 'completionActions');
-
-        $query->whereHas('lesson', function ($q) use ($userType, $userIdnumber, $lessonId) {
-            if ($userType === 'Instructor') {
-                $q->where('idnumber', $userIdnumber);
-            } elseif ($userType === 'Student') {
-                $classIds = \App\Models\StudentClass::where('idnumber', $userIdnumber)
-                            ->pluck('class_id');
-                $q->whereIn('class_id', $classIds);
-            }
-
-            if ($lessonId) {
-                $q->where('id', $lessonId);
-            }
-        });
-
-        $sections = $query->paginate($perPage);
-
-        return response()->json($sections);
-    }
 
 }
