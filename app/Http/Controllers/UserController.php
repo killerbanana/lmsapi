@@ -71,8 +71,7 @@ class UserController extends Controller
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
 
-            $factory  = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-            $firebase = $factory->create();
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
             $bucket = $firebase->createStorage()->getBucket();
 
             $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
@@ -320,8 +319,7 @@ class UserController extends Controller
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
 
-            $factory  = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-            $firebase = $factory->create();
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
             $bucket = $firebase->createStorage()->getBucket();
 
             $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
@@ -413,8 +411,7 @@ class UserController extends Controller
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
 
-            $factory  = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-            $firebase = $factory->create();
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
             $bucket = $firebase->createStorage()->getBucket();
 
             $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
