@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('lastname')->nullable();
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
+            $table->text('photo')->nullable();
+            $table->enum('status', ['active', 'inactive', 'pending'])->default('active');
             $table->timestamps();
         });
     }

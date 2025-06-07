@@ -26,62 +26,85 @@ class SectionController extends Controller
             'require_for_completion' => 'boolean',
             'completion_time_estimate' => 'nullable|integer|min:1',
 
-            'files' => 'required|array',
+            'type' => 'required|in:content,assessment,other',
+            'subtype' => 'required|string',
+
+            'files' => 'nullable|array',
             'files.*' => 'file|max:10240',
-            'resource_names' => 'required|array',
-            'resource_names.*' => 'required|string',
+            'resource_names' => 'nullable|array',
+            'resource_names.*' => 'required_with:files|string',
             'resource_types' => 'nullable|array',
             'resource_types.*' => 'nullable|string',
 
             'completion_actions' => 'nullable|array',
             'completion_actions.*.action_type' => 'required|string',
             'completion_actions.*.parameters' => 'nullable|array',
+
+            'page_content' => 'nullable|string',
+            'quiz_id' => 'nullable|integer|exists:quiz_assessments,id', // for assessment subtype
         ]);
 
+        // Verify user authorization
         $userIdnumber = auth()->user()->idnumber;
         $lesson = Lessons::where('id', $validated['lesson_id'])
-                        ->where('idnumber', $userIdnumber)
-                        ->first();
+            ->where('idnumber', $userIdnumber)
+            ->first();
 
         if (!$lesson) {
             abort(403, 'You are not authorized to create a section for this lesson.');
         }
 
-        // ✅ Create section
+        // Create Section
         $section = Section::create([
             'lesson_id' => $validated['lesson_id'],
-            'title' => $validated['title'],
-            'introduction' => $validated['introduction'] ?? null,
+            'type' => $validated['type'],
+            'subtype' => $validated['subtype'],
             'require_for_completion' => $validated['require_for_completion'] ?? false,
-            'completion_time_estimate' => $validated['completion_time_estimate'] ?? null,
         ]);
 
-        // ✅ Setup Firebase
-        $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-        $bucket = $firebase->createStorage()->getBucket();
-
-        // ✅ Upload files and attach resources
-        foreach ($validated['files'] as $index => $file) {
-            $name = $validated['resource_names'][$index] ?? 'Unnamed';
-            $type = $validated['resource_types'][$index] ?? 'pdf';
-
-            $firebaseFilePath = 'sections/' . uniqid() . '_' . $file->getClientOriginalName();
-
-            $bucket->upload(
-                fopen($file->getRealPath(), 'r'),
-                ['name' => $firebaseFilePath]
-            );
-
-            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
-
-            $section->resources()->create([
-                'name' => $name,
-                'url' => $url,
-                'type' => $type,
+        // Handle content: page subtype
+        if ($validated['type'] === 'content' && $validated['subtype'] === 'page') {
+            ContentSection::create([
+                'section_id' => $section->id,
+                'content' => $validated['page_content'] ?? '',
             ]);
         }
 
-        // ✅ Completion actions
+        // Handle assessment: quiz subtype
+        if ($validated['type'] === 'assessment' && $validated['subtype'] === 'quiz') {
+            SectionQuiz::create([
+                'section_id' => $section->id,
+                'quiz_id' => $validated['quiz_id'],
+            ]);
+        }
+
+        // Upload Resources
+        if (!empty($validated['files'])) {
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $bucket = $firebase->createStorage()->getBucket();
+
+            foreach ($validated['files'] as $index => $file) {
+                $name = $validated['resource_names'][$index] ?? 'Unnamed';
+                $type = $validated['resource_types'][$index] ?? 'pdf';
+
+                $firebaseFilePath = 'sections/' . uniqid() . '_' . $file->getClientOriginalName();
+
+                $bucket->upload(
+                    fopen($file->getRealPath(), 'r'),
+                    ['name' => $firebaseFilePath]
+                );
+
+                $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+
+                $section->resources()->create([
+                    'name' => $name,
+                    'url' => $url,
+                    'type' => $type,
+                ]);
+            }
+        }
+
+        // Completion Actions
         if (!empty($validated['completion_actions'])) {
             foreach ($validated['completion_actions'] as $action) {
                 $section->completionActions()->create([
@@ -92,34 +115,9 @@ class SectionController extends Controller
         }
 
         return response()->json([
-            'message' => 'Section added with uploaded resources.',
+            'message' => 'Section created successfully.',
             'data' => $section->load('resources', 'completionActions'),
         ], 201);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $section = Section::findOrFail($id);
-
-        // Ensure the user owns the lesson this section belongs to
-        $userIdnumber = auth()->user()->idnumber;
-        if ($section->lesson->idnumber !== $userIdnumber) {
-            abort(403, 'You are not authorized to update this section.');
-        }
-
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'introduction' => 'nullable|string',
-            'require_for_completion' => 'boolean',
-            'completion_time_estimate' => 'nullable|integer|min:1',
-        ]);
-
-        $section->update($validated);
-
-        return response()->json([
-            'message' => 'Section updated successfully.',
-            'data' => $section
-        ]);
     }
 
     public function indexAll(Request $request)

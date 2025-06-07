@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sections', function (Blueprint $table) {
+       Schema::create('sections', function (Blueprint $table) {
             $table->id();
             $table->foreignId('lesson_id')->constrained()->onDelete('cascade');
-            $table->string('title'); // optional if using title
-            $table->text('introduction')->nullable();
+            $table->enum('type', ['content', 'assessment', 'other']);
+            $table->string('subtype')->nullable(); // examples: page, file, quiz, essay, etc.
             $table->boolean('require_for_completion')->default(false);
-            $table->integer('completion_time_estimate')->nullable(); // in minutes
             $table->timestamps();
         });
     }

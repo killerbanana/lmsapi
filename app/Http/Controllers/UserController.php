@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Kreait\Firebase\Factory;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Admin;
 use App\Models\Students;
@@ -14,7 +15,6 @@ use App\Services\RoleAbilitiesService;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TeacherClass;
 use Illuminate\Support\Facades\Cache;
-
 
 class UserController extends Controller
 {
@@ -44,6 +44,7 @@ class UserController extends Controller
 
     public function registerStudent(Request $request)
     {
+        $url = null;
         $validator = Validator::make($request->all(), [
             'username' => 'required|string|unique:users,username',
             'idnumber' => 'required|string|unique:users,idnumber',
@@ -60,10 +61,28 @@ class UserController extends Controller
             'fathercontact' => 'nullable|string',
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
+            'photo' => 'nullable|file|image|max:5120',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
+        }
+
+        if ($request->hasFile('photo')) {
+            $file = $request->file('photo');
+
+            $factory  = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $firebase = $factory->create();
+            $bucket = $firebase->createStorage()->getBucket();
+
+            $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+
+            $bucket->upload(
+                fopen($file->getRealPath(), 'r'),
+                ['name' => $firebaseFilePath]
+            );
+
+            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
         }
 
         // Start DB transaction
@@ -95,6 +114,7 @@ class UserController extends Controller
                     'fathercontact' => $request->fathercontact,
                     'mothername' => $request->mothername,
                     'mothercontact' => $request->mothercontact,
+                    'photo' => $url,
                 ]
             );
 
@@ -117,6 +137,7 @@ class UserController extends Controller
                     'email' => $fatherId . '@example.com',
                     'phone' => $request->fathercontact,
                     'linked_id' => $studentUser->idnumber,
+                    'photo' => $url,
                 ]);
             }
 
@@ -139,6 +160,7 @@ class UserController extends Controller
                     'email' => $motherId . '@example.com',
                     'phone' => $request->mothercontact,
                     'linked_id' => $studentUser->idnumber,
+                    'photo' => $url,
                 ]);
             }
 
@@ -212,6 +234,7 @@ class UserController extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
+        
 
         $student = Students::where('idnumber', $idnumber)->first();
 
@@ -277,11 +300,14 @@ class UserController extends Controller
             'gender' => 'nullable|in:male,female,other',
             'birthdate' => 'nullable|date',
             'address' => 'nullable|string',
+            'photo' => 'nullable|file|image|max:5120',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
+
+        $url = null;
 
         $user = User::create([
             'username' => $request->username,
@@ -290,6 +316,23 @@ class UserController extends Controller
             'password' => bcrypt($request->password),
             'usertype' => 'Teacher',
         ]);
+
+        if ($request->hasFile('photo')) {
+            $file = $request->file('photo');
+
+            $factory  = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $firebase = $factory->create();
+            $bucket = $firebase->createStorage()->getBucket();
+
+            $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+
+            $bucket->upload(
+                fopen($file->getRealPath(), 'r'),
+                ['name' => $firebaseFilePath]
+            );
+
+            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+        }
 
         $personalInfo = Teachers::updateOrCreate(
             ['idnumber' => $user->idnumber],
@@ -301,6 +344,7 @@ class UserController extends Controller
                 'gender' => $request->gender,
                 'birthdate' => $request->birthdate,
                 'address' => $request->address,
+                'photo' => $url
             ]
         );
 
@@ -326,10 +370,9 @@ class UserController extends Controller
         }
     }
 
-
     public function updateTeacherInfo(Request $request, $idnumber)
     {
-        // Validate only teacher personal info fields
+        // Validate input fields, photo must be an image file (optional)
         $validator = Validator::make($request->all(), [
             'firstname' => 'nullable|string',
             'lastname' => 'nullable|string',
@@ -337,6 +380,7 @@ class UserController extends Controller
             'gender' => 'nullable|in:male,female,other',
             'birthdate' => 'nullable|date',
             'address' => 'nullable|string',
+            'photo' => 'nullable|file|image|max:5120',  // max 5MB
         ]);
 
         if ($validator->fails()) {
@@ -349,17 +393,51 @@ class UserController extends Controller
             return response()->json(['message' => 'Teacher info not found.'], 404);
         }
 
-        $teacher->update($request->only([
+        $updateData = $request->only([
             'firstname',
             'lastname',
             'phone',
             'gender',
             'birthdate',
-            'address'
-        ]));
+            'address',
+        ]);
+
+        // Remove empty string fields so they don't overwrite existing data with blank
+        foreach ($updateData as $key => $value) {
+            if ($value === '') {
+                unset($updateData[$key]);
+            }
+        }
+
+        // Handle photo upload if exists
+        if ($request->hasFile('photo')) {
+            $file = $request->file('photo');
+
+            $factory  = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $firebase = $factory->create();
+            $bucket = $firebase->createStorage()->getBucket();
+
+            $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+
+            $bucket->upload(
+                fopen($file->getRealPath(), 'r'),
+                ['name' => $firebaseFilePath]
+            );
+
+            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+
+            // Add photo URL to update data
+            $updateData['photo'] = $url;
+        }
+
+        // Update teacher model with validated & prepared data
+        $teacher->update($updateData);
 
         return response()->json(['message' => 'Teacher personal info updated successfully.']);
     }
+
+
+
 
     public function changePassword(Request $request, $idnumber)
     {

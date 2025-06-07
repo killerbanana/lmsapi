@@ -9,6 +9,7 @@ use App\Http\Controllers\LessonController;
 use App\Http\Controllers\StudentSubjectController;
 use App\Http\Controllers\OtpController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\TeachersController;
 use Illuminate\Support\Facades\Auth;
 
 

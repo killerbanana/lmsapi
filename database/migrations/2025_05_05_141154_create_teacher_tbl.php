@@ -22,6 +22,8 @@ return new class extends Migration
             $table->string('phone')->nullable();
             $table->string('address')->nullable();
             $table->string('gender')->nullable(); // Optional: use ENUM or string
+            $table->text('photo')->nullable();
+            $table->enum('status', ['active', 'inactive', 'pending'])->default('active');
             $table->timestamps(); // created_at and updated_at
         });
     }
