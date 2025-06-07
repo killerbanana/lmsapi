@@ -27,6 +27,8 @@ return new class extends Migration
             $table->string('fathercontact')->nullable();
             $table->string('mothername')->nullable();
             $table->string('mothercontact')->nullable();
+            $table->text('photo')->nullable();
+            $table->enum('status', ['active', 'inactive', 'pending'])->default('active');
             $table->timestamps();
         });
     }

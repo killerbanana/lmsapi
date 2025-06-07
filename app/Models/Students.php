@@ -24,7 +24,8 @@ class Students extends Model
         'fathercontact', 
         'mothername', 
         'mothercontact',
-        'picture',
+        'photo',
+        'status',
     ];
 
     // If your table has the default created_at and updated_at columns
