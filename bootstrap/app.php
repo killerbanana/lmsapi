@@ -31,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson() || str_starts_with($request->getPathInfo(), '/api')) {
                 return response()->json([
                     'message' => 'An error occurred.',
-                    'error' => config('app.debug') ? $exception->getMessage() : 'Un authorized',
+                    'error' => config('app.debug') ? $exception->getMessage() : 'Unauthorized access.',
                 ], method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 403);
             }
 
