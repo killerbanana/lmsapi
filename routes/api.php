@@ -74,7 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/teachers', [UserController::class, 'getTeachers'])
     ->middleware('check.ability:view-teachers');
     
-    Route::put('/teacher/{idnumber}', [UserController::class, 'updateTeacherInfo'])
+    Route::post('/teacher/{idnumber}', [UserController::class, 'updateTeacherInfo'])
     ->middleware('check.ability:update-teacher');
 
     Route::delete('/teacher/{idnumber}', [UserController::class, 'deleteTeacher'])
