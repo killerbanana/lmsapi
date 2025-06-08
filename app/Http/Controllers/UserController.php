@@ -15,6 +15,7 @@ use App\Services\RoleAbilitiesService;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TeacherClass;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -216,6 +217,8 @@ class UserController extends Controller
 
     public function updateStudentInfo(Request $request, $idnumber)
     {
+        // Validate input
+        $url = null;
         $validator = Validator::make($request->all(), [
             'section' => 'nullable|string',
             'firstname' => 'nullable|string',
@@ -228,34 +231,59 @@ class UserController extends Controller
             'fathercontact' => 'nullable|string',
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
+            'photo' => 'nullable|file|image|max:5120', // optional photo
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
-        
 
+        // Find the student by idnumber
         $student = Students::where('idnumber', $idnumber)->first();
 
         if (!$student) {
             return response()->json(['message' => 'Student not found.'], 404);
         }
 
-        $student->update($request->only([
-            'section',
-            'firstname',
-            'lastname',
-            'phone',
-            'gender',
-            'birthdate',
-            'address',
-            'fathername',
-            'fathercontact',
-            'mothername',
-            'mothercontact',
-        ]));
+        // Handle photo upload if exists
+        if ($request->hasFile('photo')) {
+            $file = $request->file('photo');
 
-        return response()->json(['message' => 'Student personal info updated successfully.']);
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $bucket = $firebase->createStorage()->getBucket();
+
+            $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+
+            $bucket->upload(
+                fopen($file->getRealPath(), 'r'),
+                ['name' => $firebaseFilePath]
+            );
+
+            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+        }
+
+        Students::where('idnumber', $idnumber)->update([
+            'section' => $request->section,
+            'firstname' =>  $request->firstname,
+            'lastname' => $request->lastname,
+            'phone' => $request->phone,
+            'gender' => $request->gender,
+            'birthdate' => $request->birthdate,
+            'address' => $request->address,
+            'fathername' => $request->fathername,
+            'fathercontact' =>$request->fathercontact,
+            'mothername' => $request->mothername,
+            'mothercontact' => $request->mothercontact,
+            'photo' => $url
+        ]);
+
+        if ($student->save()) {
+            return response()->json([
+                'message' => 'Student info updated successfully.',
+            ]);
+        } else {
+            return response()->json(['message' => 'Failed to update student.'], 500);
+        }
     }
 
 
@@ -391,22 +419,6 @@ class UserController extends Controller
             return response()->json(['message' => 'Teacher info not found.'], 404);
         }
 
-        $updateData = $request->only([
-            'firstname',
-            'lastname',
-            'phone',
-            'gender',
-            'birthdate',
-            'address',
-        ]);
-
-        // Remove empty string fields so they don't overwrite existing data with blank
-        foreach ($updateData as $key => $value) {
-            if ($value === '') {
-                unset($updateData[$key]);
-            }
-        }
-
         // Handle photo upload if exists
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
@@ -422,15 +434,25 @@ class UserController extends Controller
             );
 
             $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
-
-            // Add photo URL to update data
-            $updateData['photo'] = $url;
         }
 
-        // Update teacher model with validated & prepared data
-        $teacher->update($updateData);
+        Teachers::where('idnumber', $idnumber)->update([
+            'firstname' =>  $request->section,
+            'lastname' =>  $request->lastname,
+            'phone' =>  $request->phone,
+            'gender' =>  $request->gender,
+            'birthdate' =>  $request->birthdate,
+            'address' =>  $request->address,
+            'photo' =>  $request->photo,
+        ]);
 
-        return response()->json(['message' => 'Teacher personal info updated successfully.']);
+        if ($student->save()) {
+            return response()->json([
+                'message' => 'Teacher info updated successfully.',
+            ]);
+        } else {
+            return response()->json(['message' => 'Failed to update teacher.'], 500);
+        }
     }
 
 
