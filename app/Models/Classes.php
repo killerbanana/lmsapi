@@ -12,6 +12,7 @@ class Classes extends Model
         'class_id',
         'class_name',
         'description',
+        'photo',
     ];
 
     public function students()

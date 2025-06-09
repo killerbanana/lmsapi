@@ -57,25 +57,43 @@ class TeacherClassController extends Controller
         if ($user->usertype === 'Administrator') {
             // Admin sees all classes
             $query = Classes::query();
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'classes' => $paginated->items(),
+            ], 200);
+            
         } 
 
         if($user->usertype === 'Student'){
             $query = StudentClass::where('idnumber', $user->idnumber);
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'classes' => $paginated->items(),
+            ], 200);
         }
         
-        else {
+        if($user->usertype === 'Teacher') {
             // Others see only their own classes
             $query = TeacherClass::where('idnumber', $user->idnumber);
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'classes' => $paginated->items(),
+            ], 200);
         }
-
-        $paginated = $query->paginate($perPage);
-
-        return response()->json([
-            'total' => $paginated->total(),
-            'per_page' => $paginated->perPage(),
-            'current_page' => $paginated->currentPage(),
-            'last_page' => $paginated->lastPage(),
-            'classes' => $paginated->items(),
-        ], 200);
     }
 }
