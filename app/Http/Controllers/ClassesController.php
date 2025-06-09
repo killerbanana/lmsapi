@@ -67,6 +67,7 @@ class ClassesController extends Controller
             'class_id' => 'required|unique:classes,class_id',
             'class_name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'tag' => 'nullable|string',
         ]);
 
 
@@ -94,6 +95,7 @@ class ClassesController extends Controller
             'class_id' => $request->class_id,
             'class_name' => $request->class_name,
             'description' => $request->description,
+            'tag' => $request->tag,
             'photo' => $url
         ]);
 

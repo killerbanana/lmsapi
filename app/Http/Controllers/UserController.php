@@ -59,9 +59,8 @@ class UserController extends Controller
             'birthdate' => 'nullable|date',
             'address' => 'nullable|string',
             'fathername' => 'nullable|string',
-            'fathercontact' => 'nullable|string',
             'mothername' => 'nullable|string',
-            'mothercontact' => 'nullable|string',
+            'guardian_contact' => 'nullable|string',
             'photo' => 'nullable|file|image|max:5120',
         ]);
 
@@ -111,10 +110,9 @@ class UserController extends Controller
                     'birthdate' => $request->birthdate,
                     'address' => $request->address,
                     'fathername' => $request->fathername,
-                    'fathercontact' => $request->fathercontact,
                     'mothername' => $request->mothername,
-                    'mothercontact' => $request->mothercontact,
                     'photo' => $url,
+                    'guardian_contact' => $request->guardian_contact,
                 ]
             );
 
