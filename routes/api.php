@@ -75,7 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
     ->middleware('check.ability:view-teachers');
     
     Route::post('/teacher/{idnumber}', [UserController::class, 'updateTeacherInfo'])
-    ->middleware('check.ability:update-teacher');
+    ->middleware('check.ability:update-profile');
 
     Route::delete('/teacher/{idnumber}', [UserController::class, 'deleteTeacher'])
         ->middleware('check.ability:delete-teacher');

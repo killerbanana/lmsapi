@@ -399,6 +399,7 @@ class UserController extends Controller
     public function updateTeacherInfo(Request $request, $idnumber)
     {
         // Validate input fields, photo must be an image file (optional)
+        $user = Auth::user();
         $validator = Validator::make($request->all(), [
             'firstname' => 'nullable|string',
             'lastname' => 'nullable|string',
@@ -419,44 +420,100 @@ class UserController extends Controller
             return response()->json(['message' => 'Teacher info not found.'], 404);
         }
 
-        // Prepare data for update
-        $data = [
-            'firstname' => $request->firstname,
-            'lastname' => $request->lastname,
-            'phone' => $request->phone,
-            'gender' => $request->gender,
-            'birthdate' => $request->birthdate,
-            'address' => $request->address,
-        ];
+        switch ($user->usertype) {
+        case 'Administrator':
+            $data = [
+                'firstname' => $request->firstname,
+                'lastname' => $request->lastname,
+                'phone' => $request->phone,
+                'gender' => $request->gender,
+                'birthdate' => $request->birthdate,
+                'address' => $request->address,
+            ];
 
-        // Handle photo upload if exists
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
+            // Handle photo upload if exists
+            if ($request->hasFile('photo')) {
+                $file = $request->file('photo');
 
-            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-            $bucket = $firebase->createStorage()->getBucket();
+                $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+                $bucket = $firebase->createStorage()->getBucket();
 
-            $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+                $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
 
-            $bucket->upload(
-                fopen($file->getRealPath(), 'r'),
-                ['name' => $firebaseFilePath]
-            );
+                $bucket->upload(
+                    fopen($file->getRealPath(), 'r'),
+                    ['name' => $firebaseFilePath]
+                );
 
-            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
-            $data['photo'] = $url; // only set photo if uploaded
+                $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+                $data['photo'] = $url; // only set photo if uploaded
+            }
+
+            // Update teacher
+            $updated = Teachers::where('idnumber', $idnumber)->update($data);
+
+            if ($updated) {
+                return response()->json([
+                    'message' => 'Teacher info updated successfully.',
+                ]);
+            } else {
+                return response()->json(['message' => 'Failed to update teacher.'], 500);
+            }
+            break;
+        case 'Teacher':
+            if($user->idnumber === $idnumber){
+                $data = [
+                    'firstname' => $request->firstname,
+                    'lastname' => $request->lastname,
+                    'phone' => $request->phone,
+                    'gender' => $request->gender,
+                    'birthdate' => $request->birthdate,
+                    'address' => $request->address,
+                ];
+
+                // Handle photo upload if exists
+                if ($request->hasFile('photo')) {
+                    $file = $request->file('photo');
+
+                    $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+                    $bucket = $firebase->createStorage()->getBucket();
+
+                    $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+
+                    $bucket->upload(
+                        fopen($file->getRealPath(), 'r'),
+                        ['name' => $firebaseFilePath]
+                    );
+
+                    $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+                    $data['photo'] = $url; // only set photo if uploaded
+                }
+
+                // Update teacher
+                $updated = Teachers::where('idnumber', $idnumber)->update($data);
+
+                if ($updated) {
+                    return response()->json([
+                        'message' => 'Teacher info updated successfully.',
+                    ]);
+                } else {
+                    return response()->json(['message' => 'Failed to update teacher.'], 500);
+                }
+            }
+
+            else{
+                return response()->json(['message' => 'Unathorized to update profile.'], 403);
+            }
+            
+            break;
+        case 'Student':
+            $personalInfo = Students::where('idnumber', $user->idnumber)->first();
+            break;
+        default:
+            // Optionally handle unexpected usertype
+            $personalInfo = null;
         }
-
-        // Update teacher
-        $updated = Teachers::where('idnumber', $idnumber)->update($data);
-
-        if ($updated) {
-            return response()->json([
-                'message' => 'Teacher info updated successfully.',
-            ]);
-        } else {
-            return response()->json(['message' => 'Failed to update teacher.'], 500);
-        }
+        
     }
 
 
