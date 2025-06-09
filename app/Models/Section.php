@@ -16,6 +16,8 @@ class Section extends Model
         'require_for_completion',
         'completion_time_estimate',
         'is_complete_on_visit',
+        'type',
+        'subtype',
     ];
 
     /**
@@ -23,7 +25,7 @@ class Section extends Model
      */
     public function lesson()
     {
-        return $this->belongsTo(Lessons::class);
+        return $this->belongsTo(Lesson::class);  // check class name & namespace
     }
 
     /**
@@ -42,3 +44,4 @@ class Section extends Model
         return $this->hasMany(SectionCompletionAction::class);
     }
 }
+

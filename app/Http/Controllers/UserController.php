@@ -419,6 +419,16 @@ class UserController extends Controller
             return response()->json(['message' => 'Teacher info not found.'], 404);
         }
 
+        // Prepare data for update
+        $data = [
+            'firstname' => $request->firstname,
+            'lastname' => $request->lastname,
+            'phone' => $request->phone,
+            'gender' => $request->gender,
+            'birthdate' => $request->birthdate,
+            'address' => $request->address,
+        ];
+
         // Handle photo upload if exists
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
@@ -434,19 +444,13 @@ class UserController extends Controller
             );
 
             $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+            $data['photo'] = $url; // only set photo if uploaded
         }
 
-        Teachers::where('idnumber', $idnumber)->update([
-            'firstname' =>  $request->section,
-            'lastname' =>  $request->lastname,
-            'phone' =>  $request->phone,
-            'gender' =>  $request->gender,
-            'birthdate' =>  $request->birthdate,
-            'address' =>  $request->address,
-            'photo' =>  $request->photo,
-        ]);
+        // Update teacher
+        $updated = Teachers::where('idnumber', $idnumber)->update($data);
 
-        if ($student->save()) {
+        if ($updated) {
             return response()->json([
                 'message' => 'Teacher info updated successfully.',
             ]);

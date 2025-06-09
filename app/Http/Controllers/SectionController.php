@@ -6,6 +6,8 @@ use Kreait\Firebase\Factory;
 use Illuminate\Http\Request;
 use App\Models\Lessons;
 use App\Models\Section;
+use App\Models\ContentSection;
+
 use App\Models\SectionResource;
 
 class SectionController extends Controller
@@ -41,10 +43,10 @@ class SectionController extends Controller
             'completion_actions.*.parameters' => 'nullable|array',
 
             'page_content' => 'nullable|string',
-            'quiz_id' => 'nullable|integer|exists:quiz_assessments,id', // for assessment subtype
+            'quiz_id' => 'nullable|integer|exists:quiz_assessments,id',
         ]);
 
-        // Verify user authorization
+        // Authorization: Check that user owns the lesson
         $userIdnumber = auth()->user()->idnumber;
         $lesson = Lessons::where('id', $validated['lesson_id'])
             ->where('idnumber', $userIdnumber)
@@ -62,7 +64,7 @@ class SectionController extends Controller
             'require_for_completion' => $validated['require_for_completion'] ?? false,
         ]);
 
-        // Handle content: page subtype
+        // Handle content (page subtype)
         if ($validated['type'] === 'content' && $validated['subtype'] === 'page') {
             ContentSection::create([
                 'section_id' => $section->id,
@@ -70,7 +72,7 @@ class SectionController extends Controller
             ]);
         }
 
-        // Handle assessment: quiz subtype
+        // Handle assessment (quiz subtype)
         if ($validated['type'] === 'assessment' && $validated['subtype'] === 'quiz') {
             SectionQuiz::create([
                 'section_id' => $section->id,
@@ -78,47 +80,60 @@ class SectionController extends Controller
             ]);
         }
 
-        // Upload Resources
-        if (!empty($validated['files'])) {
-            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-            $bucket = $firebase->createStorage()->getBucket();
+        // Upload Resources to Firebase Storage
+        if ($request->hasFile('files')) {
+            $files = $request->file('files');
 
-            foreach ($validated['files'] as $index => $file) {
-                $name = $validated['resource_names'][$index] ?? 'Unnamed';
+            try {
+                $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+                $bucket = $firebase->createStorage()->getBucket();
+            } catch (\Exception $e) {
+                \Log::error("Firebase initialization failed: " . $e->getMessage());
+                return response()->json(['message' => 'Failed to initialize Firebase storage.'], 500);
+            }
+
+            foreach ($files as $index => $file) {
+                $name = $validated['resource_names'][$index] ?? 'Unnamed Resource';
                 $type = $validated['resource_types'][$index] ?? 'pdf';
 
                 $firebaseFilePath = 'sections/' . uniqid() . '_' . $file->getClientOriginalName();
 
-                $bucket->upload(
-                    fopen($file->getRealPath(), 'r'),
-                    ['name' => $firebaseFilePath]
-                );
+                try {
+                    $bucket->upload(
+                        fopen($file->getRealPath(), 'r'),
+                        ['name' => $firebaseFilePath]
+                    );
 
-                $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+                    $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
 
-                $section->resources()->create([
-                    'name' => $name,
-                    'url' => $url,
-                    'type' => $type,
-                ]);
+                    $section->resources()->create([
+                        'name' => $name,
+                        'url' => $url,
+                        'type' => $type,
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error("Failed to upload or save resource file: " . $e->getMessage());
+                    return response()->json(['message' => 'Failed to upload resource file.'], 500);
+                }
             }
         }
 
-        // Completion Actions
-        if (!empty($validated['completion_actions'])) {
-            foreach ($validated['completion_actions'] as $action) {
-                $section->completionActions()->create([
-                    'action_type' => $action['action_type'],
-                    'parameters' => $action['parameters'] ?? [],
-                ]);
-            }
-        }
+        // Save Completion Actions
+        // if (!empty($validated['completion_actions'])) {
+        //     foreach ($validated['completion_actions'] as $action) {
+        //         $section->completionActions()->create([
+        //             'action_type' => $action['action_type'],
+        //             'parameters' => $action['parameters'] ?? [],
+        //         ]);
+        //     }
+        // }
 
-        return response()->json([
-            'message' => 'Section created successfully.',
-            'data' => $section->load('resources', 'completionActions'),
-        ], 201);
+        // return response()->json([
+        //     'message' => 'Section created successfully.',
+        //     'data' => $section->load('resources', 'completionActions'),
+        // ], 201);
     }
+
 
     public function indexAll(Request $request)
     {
