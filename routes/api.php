@@ -58,6 +58,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/classes', [TeacherClassController::class, 'getAllClass'])
         ->middleware('check.ability:view-classes');
 
+    Route::get('/linked-classes', [ClassesController::class, 'getAllClass'])
+        ->middleware('check.ability:view-classes-all');
+
+
     Route::post('/class/assign/student', [StudentClassController::class, 'assignStudentToClass'])
         ->middleware('check.ability:class-assign-student');
 
