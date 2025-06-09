@@ -71,7 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/class/assign/subject', [TeacherClassController::class, 'assignTeacherToClass'])
         ->middleware('check.ability:class-assign-teacher');
 
-    Route::put('/classes/{id}', [ClassesController::class, 'updateClass'])->middleware('check.ability:update-clas');
+    Route::post('/classes/{id}', [ClassesController::class, 'updateClass'])->middleware('check.ability:update-clas');
     Route::delete('/classes/{id}', [ClassesController::class, 'deleteClass'])->middleware('check.ability:delete-class');
         
     //Teachers
