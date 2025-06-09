@@ -24,9 +24,8 @@ return new class extends Migration
             $table->date('birthdate')->nullable();
             $table->text('address')->nullable();
             $table->string('fathername')->nullable();
-            $table->string('fathercontact')->nullable();
             $table->string('mothername')->nullable();
-            $table->string('mothercontact')->nullable();
+            $table->string('guardian_contact')->nullable();
             $table->text('photo')->nullable();
             $table->enum('status', ['active', 'inactive', 'pending'])->default('active');
             $table->timestamps();

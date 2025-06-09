@@ -21,9 +21,8 @@ class Students extends Model
         'birthdate', 
         'address', 
         'fathername', 
-        'fathercontact', 
+        'guardian_contact',
         'mothername', 
-        'mothercontact',
         'photo',
         'status',
     ];
