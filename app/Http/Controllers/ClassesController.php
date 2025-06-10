@@ -68,6 +68,7 @@ class ClassesController extends Controller
             'class_name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'tag' => 'nullable|string',
+            'status' => 'nullable|in:active,inactive,enrolled,inprogress',
         ]);
 
 
@@ -96,7 +97,8 @@ class ClassesController extends Controller
             'class_name' => $request->class_name,
             'description' => $request->description,
             'tag' => $request->tag,
-            'photo' => $url
+            'photo' => $url,
+            'status' => $request->status
         ]);
 
         return response()->json([
@@ -113,6 +115,7 @@ class ClassesController extends Controller
             'class_name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'tag' => 'nullable|string',
+            'status' => 'nullable|in:active,inactive',
             ]);
 
             if ($validator->fails()) {
@@ -129,6 +132,7 @@ class ClassesController extends Controller
                 'class_name' => $request->class_name,
                 'description' => $request->description,
                  'tag' => $request->tag,
+                 'status' => $request->status,
             ];
 
             if ($request->hasFile('photo')) {

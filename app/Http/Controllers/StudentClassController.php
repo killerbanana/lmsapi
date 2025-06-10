@@ -16,6 +16,7 @@ class StudentClassController extends Controller
         $validated = $request->validate([
             'idnumber' => 'required|string|max:255',
             'class_id' => 'required|string|max:255',
+            'status' => 'nullable|in:active,inactive',
         ]);
 
         $student_exists = Students::where('idnumber', $validated['idnumber'])->exists();

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('class_id');
             $table->foreign('class_id')->references('class_id')->on('classes')->onDelete('cascade');
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
+            $table->enum('status', ['active', 'inactive'])->nullable()->default('inactive');
             $table->timestamps();
         });
     }

@@ -223,7 +223,6 @@ class UserController extends Controller
         // Validate input
         $url = null;
         $validator = Validator::make($request->all(), [
-            'section' => 'nullable|string',
             'firstname' => 'nullable|string',
             'lastname' => 'nullable|string',
             'phone' => 'nullable|string',
@@ -234,6 +233,7 @@ class UserController extends Controller
             'fathercontact' => 'nullable|string',
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
+            'guardian_contact' => 'nullable|string',
             'photo' => 'nullable|file|image|max:5120', // optional photo
         ]);
 
@@ -266,7 +266,6 @@ class UserController extends Controller
         }
 
         Students::where('idnumber', $idnumber)->update([
-            'section' => $request->section,
             'firstname' =>  $request->firstname,
             'lastname' => $request->lastname,
             'phone' => $request->phone,
@@ -277,6 +276,7 @@ class UserController extends Controller
             'fathercontact' =>$request->fathercontact,
             'mothername' => $request->mothername,
             'mothercontact' => $request->mothercontact,
+            'guardian_contact' => $request->guardian_contact,
             'photo' => $url
         ]);
 
