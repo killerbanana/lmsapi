@@ -12,7 +12,6 @@ class Students extends Model
     // The attributes that are mass assignable
     protected $fillable = [
         'idnumber', 
-        'section', 
         'firstname', 
         'lastname', 
         'email', 

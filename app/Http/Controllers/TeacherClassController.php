@@ -18,6 +18,7 @@ class TeacherClassController extends Controller
         $validated = $request->validate([
             'idnumber' => 'required|string|max:255',
             'class_id' => 'required|string|max:255',
+            'status' => 'nullable|in:active,inactive',
         ]);
 
         $teacher_exists = Teachers::where('idnumber', $validated['idnumber'])->exists();

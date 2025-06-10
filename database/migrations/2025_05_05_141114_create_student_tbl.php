@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->string('idnumber')->unique();
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
-            $table->string('section')->nullable();
             $table->string('firstname')->nullable();
             $table->string('lastname')->nullable();
             $table->string('email')->unique();
