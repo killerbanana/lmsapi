@@ -11,14 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('lesson_students', function (Blueprint $table) {
+        Schema::create('lesson_student', function (Blueprint $table) {
             $table->id();
-            $table->string('idnumber');
-            $table->unsignedBigInteger('lesson_id');
-            $table->timestamps(); 
+            $table->foreignId('lesson_id')->constrained('lessons')->onDelete('cascade');
+            $table->string('idnumber'); // <-- this must exist
+            $table->float('progress')->default(0); // if you're tracking progress
+            $table->timestamps();
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
-            $table->foreign('lesson_id')->references('id')->on('lessons')->onDelete('cascade');
-            $table->unique(['idnumber', 'lesson_id']);
         });
     }
 
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('lesson_students');
+        Schema::dropIfExists('lesson_student');
     }
 };

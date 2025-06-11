@@ -7,18 +7,17 @@ use Illuminate\Http\Request;
 use App\Models\Lessons;
 use App\Models\Section;
 use App\Models\ContentSection;
-
+use App\Models\LessonStudent; 
 use App\Models\SectionResource;
 
 class SectionController extends Controller
 {
-    public function index(Lesson $lesson)
-    {
-        return response()->json(
-            $lesson->sections()->with('resources', 'completionActions')->get()
-        );
-    }
+    // Make sure this is at the top
 
+    public function lesson()
+    {
+        return $this->belongsTo(Lessons::class, 'lesson_id');
+    }
     public function create(Request $request)
     {
         $validated = $request->validate([
@@ -46,8 +45,8 @@ class SectionController extends Controller
             'quiz_id' => 'nullable|integer|exists:quiz_assessments,id',
         ]);
 
-        // Authorization: Check that user owns the lesson
         $userIdnumber = auth()->user()->idnumber;
+
         $lesson = Lessons::where('id', $validated['lesson_id'])
             ->where('idnumber', $userIdnumber)
             ->first();
@@ -56,7 +55,7 @@ class SectionController extends Controller
             abort(403, 'You are not authorized to create a section for this lesson.');
         }
 
-        // Create Section
+        // Create base section
         $section = Section::create([
             'lesson_id' => $validated['lesson_id'],
             'type' => $validated['type'],
@@ -64,15 +63,16 @@ class SectionController extends Controller
             'require_for_completion' => $validated['require_for_completion'] ?? false,
         ]);
 
-        // Handle content (page subtype)
+        // If content section, create content record
         if ($validated['type'] === 'content' && $validated['subtype'] === 'page') {
             ContentSection::create([
                 'section_id' => $section->id,
+                'introduction' => $validated['introduction'] ?? null,
                 'content' => $validated['page_content'] ?? '',
             ]);
         }
 
-        // Handle assessment (quiz subtype)
+        // If assessment section, create quiz link
         if ($validated['type'] === 'assessment' && $validated['subtype'] === 'quiz') {
             SectionQuiz::create([
                 'section_id' => $section->id,
@@ -80,58 +80,31 @@ class SectionController extends Controller
             ]);
         }
 
-        // Upload Resources to Firebase Storage
+        // Upload resources
         if ($request->hasFile('files')) {
-            $files = $request->file('files');
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $bucket = $firebase->createStorage()->getBucket();
 
-            try {
-                $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-                $bucket = $firebase->createStorage()->getBucket();
-            } catch (\Exception $e) {
-                \Log::error("Firebase initialization failed: " . $e->getMessage());
-                return response()->json(['message' => 'Failed to initialize Firebase storage.'], 500);
-            }
+            foreach ($request->file('files') as $index => $file) {
+                $firebaseFilePath = 'resources/resource_' . uniqid() . '_' . $file->getClientOriginalName();
 
-            foreach ($files as $index => $file) {
-                $name = $validated['resource_names'][$index] ?? 'Unnamed Resource';
-                $type = $validated['resource_types'][$index] ?? 'pdf';
+                $bucket->upload(
+                    fopen($file->getRealPath(), 'r'),
+                    ['name' => $firebaseFilePath]
+                );
 
-                $firebaseFilePath = 'sections/' . uniqid() . '_' . $file->getClientOriginalName();
+                $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
 
-                try {
-                    $bucket->upload(
-                        fopen($file->getRealPath(), 'r'),
-                        ['name' => $firebaseFilePath]
-                    );
-
-                    $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
-
-                    $section->resources()->create([
-                        'name' => $name,
-                        'url' => $url,
-                        'type' => $type,
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error("Failed to upload or save resource file: " . $e->getMessage());
-                    return response()->json(['message' => 'Failed to upload resource file.'], 500);
-                }
+                SectionResource::create([
+                    'section_id' => $section->id,
+                    'name' => $validated['resource_names'][$index] ?? 'Unnamed Resource',
+                    'type' => $validated['resource_types'][$index] ?? 'unknown',
+                    'url' => $url,
+                ]);
             }
         }
 
-        // Save Completion Actions
-        // if (!empty($validated['completion_actions'])) {
-        //     foreach ($validated['completion_actions'] as $action) {
-        //         $section->completionActions()->create([
-        //             'action_type' => $action['action_type'],
-        //             'parameters' => $action['parameters'] ?? [],
-        //         ]);
-        //     }
-        // }
-
-        // return response()->json([
-        //     'message' => 'Section created successfully.',
-        //     'data' => $section->load('resources', 'completionActions'),
-        // ], 201);
+        return response()->json(['message' => 'Section created successfully'], 201);
     }
 
 
@@ -143,19 +116,18 @@ class SectionController extends Controller
         $perPage = max(1, min((int) $request->get('per_page', 10), 100));
         $lessonId = $request->get('lesson_id'); // optional filter
 
-        $query = Section::with('resources', 'completionActions');
+        $query = Section::with(['resources', 'completionActions', 'lesson']);
 
         $query->whereHas('lesson', function ($q) use ($userType, $userIdnumber, $lessonId) {
-            if ($userType === 'Instructor') {
-                $q->where('idnumber', $userIdnumber);
+            if ($userType === 'Teacher') {
+                $q->where('idnumber', $userIdnumber); // Only lessons the instructor owns
             } elseif ($userType === 'Student') {
-                $classIds = \App\Models\StudentClass::where('idnumber', $userIdnumber)
-                            ->pluck('class_id');
-                $q->whereIn('class_id', $classIds);
+                $classIds = StudentClass::where('idnumber', $userIdnumber)->pluck('class_id');
+                $q->whereIn('class_id', $classIds); // Lessons in student's classes
             }
 
             if ($lessonId) {
-                $q->where('id', $lessonId);
+                $q->where('id', $lessonId); // Optional filter by specific lesson
             }
         });
 

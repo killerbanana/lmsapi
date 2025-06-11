@@ -1,88 +1,154 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Support\Facades\Validator;
-use App\Services\RoleAbilitiesService;
+
 use Illuminate\Http\Request;
-use App\Models\Lessons;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+use App\Models\Lesson; // ✅ FIXED model import
 use App\Models\Classes;
 use App\Models\TeacherClass;
 use App\Models\StudentClass;
-use Illuminate\Support\Facades\Auth;
+use App\Models\LessonStudent;
 
-
+use Exception;
 
 class LessonController extends Controller
 {
-    public function createLesson(Request $request)
+     public function createLesson(Request $request)
     {
         $user = Auth::user();
 
-        // Validate the request
+        // Validate request data
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'class_id' => 'required|string|max:255',
         ]);
 
-        // If validation fails, return the errors
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
 
-        // Retrieve validated data
         $validated = $validator->validated();
 
-        $teacher_exists = TeacherClass::where('class_id', $validated['class_id'])->where('idnumber', $user->idnumber )->exists();
+        // Check if the teacher is assigned to the class
+        $teacher_exists = TeacherClass::where('class_id', $validated['class_id'])
+            ->where('idnumber', $user->idnumber)
+            ->exists();
 
         if (!$teacher_exists) {
-            return response()->json(['message' => 'You are not enrolled in this class. Cannot create a lesson'], 404);
+            return response()->json([
+                'message' => 'You are not enrolled in this class. Cannot create a lesson.'
+            ], 403);
         }
 
+        // Ensure class exists
         $class_exists = Classes::where('class_id', $validated['class_id'])->exists();
         if (!$class_exists) {
             return response()->json(['message' => 'Class does not exist.'], 404);
         }
 
-        // Create the new subject
-        $lesson = Lessons::create([
+        // Create the lesson
+        $lesson = Lesson::create([
             'name' => $validated['name'],
             'class_id' => $validated['class_id'],
-            'idnumber' => $user->idnumber 
+            'idnumber' => $user->idnumber,
         ]);
 
-        // Return a JSON response
-        return response()->json(['message' => 'Lesson created successfully', 'lesson' => $lesson], 201);
+        // Assign all students in the class to this lesson
+        $students = StudentClass::where('class_id', $validated['class_id'])->pluck('idnumber');
+        foreach ($students as $studentIdnumber) {
+            LessonStudent::create([
+                'lesson_id' => $lesson->id,
+                'idnumber' => $studentIdnumber,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Lesson created successfully and students assigned.',
+            'lesson' => $lesson
+        ], 201);
     }
 
-   public function getAllLessons(Request $request)
+    public function assignStudentToLessons(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'class_id' => 'required|string|max:255',
+            'idnumber' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $validated = $validator->validated();
+
+        $class_id = $request->input('class_id');
+        $studentIdnumber = $request->input('idnumber');
+
+        // ✅ Check if the student is enrolled in the class
+       $exists = StudentClass::where('idnumber', $studentIdnumber)
+                              ->where('class_id', $class_id)
+                              ->exists();
+
+
+        if (!$exists) {
+            // DEBUGGING
+            $record = StudentClass::where('class_id', $class_id)->get();
+            \Log::info('Class enrolled students', $record->toArray());
+
+            return response()->json([
+                'message' => 'Student is not enrolled in this class. Cannot assign to lessons.',
+                'student' => $studentIdnumber,
+                'class_id' => $class_id
+            ], 404);
+        }
+
+        $lessons = Lesson::where('class_id', $class_id)->get();
+
+        foreach ($lessons as $lesson) {
+            $alreadyAssigned = LessonStudent::where('lesson_id', $lesson->id)
+                ->where('idnumber', $studentIdnumber)
+                ->exists();
+
+            if (!$alreadyAssigned) {
+                LessonStudent::create([
+                    'lesson_id' => $lesson->id,
+                    'idnumber' => $studentIdnumber,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Student assigned to existing lessons.',
+            'student' => $studentIdnumber,
+            'class_id' => $class_id
+        ], 200);
+    }
+
+    public function getAllLessons(Request $request)
     {
         try {
             $classId = $request->query('classId');
             $perPage = $request->query('perPage', 10);
             $user = Auth::user();
 
-            $query = Lessons::query();
+            $query = Lesson::query();
 
             if ($user->usertype === 'Administrator') {
-                // Admin can see all lessons
                 if ($classId) {
                     $query->where('class_id', $classId);
                 }
-
             } elseif ($user->usertype === 'Teacher') {
-                // Instructor can see only their own lessons
                 $query->where('idnumber', $user->idnumber);
                 if ($classId) {
                     $query->where('class_id', $classId);
                 }
-
             } elseif ($user->usertype === 'Student') {
-                // Get class_ids from student_classes where the student is enrolled
                 $classIds = StudentClass::where('idnumber', $user->idnumber)->pluck('class_id');
-
                 $query->whereIn('class_id', $classIds);
                 if ($classId) {
-                    $query->where('class_id', $classId); // narrow down further if specific classId is requested
+                    $query->where('class_id', $classId);
                 }
             }
 
@@ -95,7 +161,6 @@ class LessonController extends Controller
                 'last_page' => $paginated->lastPage(),
                 'lessons' => $paginated->items(),
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'An error occurred while fetching lessons.',
@@ -119,8 +184,7 @@ class LessonController extends Controller
 
         $validated = $validator->validated();
 
-        $lesson = Lessons::find($id);
-
+        $lesson = Lesson::find($id);
         if (!$lesson) {
             return response()->json(['message' => 'Lesson not found.'], 404);
         }
@@ -145,13 +209,11 @@ class LessonController extends Controller
         return response()->json(['message' => 'Lesson updated successfully.', 'lesson' => $lesson], 200);
     }
 
-
     public function deleteLesson($id)
     {
         $user = Auth::user();
 
-        $lesson = Lessons::find($id);
-
+        $lesson = Lesson::find($id);
         if (!$lesson) {
             return response()->json(['message' => 'Lesson not found.'], 404);
         }
@@ -164,6 +226,4 @@ class LessonController extends Controller
 
         return response()->json(['message' => 'Lesson deleted successfully.'], 200);
     }
-
-
 }
