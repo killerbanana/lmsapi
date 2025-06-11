@@ -2,27 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use Kreait\Firebase\Factory;
 use Illuminate\Http\Request;
-use App\Models\Lessons;
+use App\Models\Lesson;
 use App\Models\Section;
 use App\Models\ContentSection;
-use App\Models\LessonStudent; 
 use App\Models\SectionResource;
+use App\Models\SectionQuiz;
+use Kreait\Firebase\Factory;
 
 class SectionController extends Controller
 {
-    // Make sure this is at the top
-
-    public function lesson()
-    {
-        return $this->belongsTo(Lessons::class, 'lesson_id');
-    }
+    /**
+     * Create a new section for a lesson.
+     */
     public function create(Request $request)
     {
         $validated = $request->validate([
             'lesson_id' => 'required|integer|exists:lessons,id',
-            'title' => 'required|string|max:255',
+            'title' => 'nullable|string',
             'introduction' => 'nullable|string',
             'require_for_completion' => 'boolean',
             'completion_time_estimate' => 'nullable|integer|min:1',
@@ -47,15 +44,20 @@ class SectionController extends Controller
 
         $userIdnumber = auth()->user()->idnumber;
 
-        $lesson = Lessons::where('id', $validated['lesson_id'])
-            ->where('idnumber', $userIdnumber)
+        // Verify lesson belongs to class the teacher is assigned to
+        $lesson = Lesson::where('id', $validated['lesson_id'])
+            ->whereIn('class_id', function ($query) use ($userIdnumber) {
+                $query->select('class_id')
+                    ->from('class_teachers')
+                    ->where('idnumber', $userIdnumber);
+            })
             ->first();
 
         if (!$lesson) {
             abort(403, 'You are not authorized to create a section for this lesson.');
         }
 
-        // Create base section
+        // Create section
         $section = Section::create([
             'lesson_id' => $validated['lesson_id'],
             'type' => $validated['type'],
@@ -63,7 +65,7 @@ class SectionController extends Controller
             'require_for_completion' => $validated['require_for_completion'] ?? false,
         ]);
 
-        // If content section, create content record
+        // Handle content section
         if ($validated['type'] === 'content' && $validated['subtype'] === 'page') {
             ContentSection::create([
                 'section_id' => $section->id,
@@ -72,7 +74,7 @@ class SectionController extends Controller
             ]);
         }
 
-        // If assessment section, create quiz link
+        // Handle quiz link for assessment
         if ($validated['type'] === 'assessment' && $validated['subtype'] === 'quiz') {
             SectionQuiz::create([
                 'section_id' => $section->id,
@@ -80,7 +82,7 @@ class SectionController extends Controller
             ]);
         }
 
-        // Upload resources
+        // Handle file uploads to Firebase
         if ($request->hasFile('files')) {
             $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
             $bucket = $firebase->createStorage()->getBucket();
@@ -107,33 +109,27 @@ class SectionController extends Controller
         return response()->json(['message' => 'Section created successfully'], 201);
     }
 
-
-    public function indexAll(Request $request)
+    /**
+     * Get all sections linked to lessons taught by a teacher (via class).
+     */
+    public function getAllSection(Request $request)
     {
-        $user = auth()->user();
-        $userIdnumber = $user->idnumber;
-        $userType = $user->usertype;
-        $perPage = max(1, min((int) $request->get('per_page', 10), 100));
-        $lessonId = $request->get('lesson_id'); // optional filter
+        $teacherIdnumber = $request->query('idnumber');
+        $name = $request->query('name');
 
-        $query = Section::with(['resources', 'completionActions', 'lesson']);
+        $query = Section::with(['resources', 'completionActions', 'lesson'])
+            ->whereHas('lesson', function ($q) use ($teacherIdnumber) {
+                $q->whereIn('class_id', function ($subQuery) use ($teacherIdnumber) {
+                    $subQuery->select('class_id')
+                        ->from('class_teachers')
+                        ->where('idnumber', $teacherIdnumber);
+                });
+            });
 
-        $query->whereHas('lesson', function ($q) use ($userType, $userIdnumber, $lessonId) {
-            if ($userType === 'Teacher') {
-                $q->where('idnumber', $userIdnumber); // Only lessons the instructor owns
-            } elseif ($userType === 'Student') {
-                $classIds = StudentClass::where('idnumber', $userIdnumber)->pluck('class_id');
-                $q->whereIn('class_id', $classIds); // Lessons in student's classes
-            }
+        if ($name) {
+            $query->where('title', 'like', "%$name%");
+        }
 
-            if ($lessonId) {
-                $q->where('id', $lessonId); // Optional filter by specific lesson
-            }
-        });
-
-        $sections = $query->paginate($perPage);
-
-        return response()->json($sections);
+        return response()->json($query->get());
     }
-
 }

@@ -22,11 +22,11 @@ class Lesson extends Model
     /**
      * A lesson belongs to a class.
      */
-    public function class(): BelongsTo
+    public function class()
     {
         return $this->belongsTo(Classes::class, 'class_id', 'class_id');
-        // Note: 3rd argument 'class_id' is the local key if your primary key in `classes` is not 'id'
     }
+
 
     /**
      * A lesson has many sections.
