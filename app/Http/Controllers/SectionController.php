@@ -7,18 +7,17 @@ use Illuminate\Http\Request;
 use App\Models\Lessons;
 use App\Models\Section;
 use App\Models\ContentSection;
-
+use App\Models\LessonStudent; 
 use App\Models\SectionResource;
 
 class SectionController extends Controller
 {
-    public function index(Lesson $lesson)
-    {
-        return response()->json(
-            $lesson->sections()->with('resources', 'completionActions')->get()
-        );
-    }
+    // Make sure this is at the top
 
+    public function lesson()
+    {
+        return $this->belongsTo(Lessons::class, 'lesson_id');
+    }
     public function create(Request $request)
     {
         $validated = $request->validate([
@@ -117,19 +116,18 @@ class SectionController extends Controller
         $perPage = max(1, min((int) $request->get('per_page', 10), 100));
         $lessonId = $request->get('lesson_id'); // optional filter
 
-        $query = Section::with('resources', 'completionActions');
+        $query = Section::with(['resources', 'completionActions', 'lesson']);
 
         $query->whereHas('lesson', function ($q) use ($userType, $userIdnumber, $lessonId) {
-            if ($userType === 'Instructor') {
-                $q->where('idnumber', $userIdnumber);
+            if ($userType === 'Teacher') {
+                $q->where('idnumber', $userIdnumber); // Only lessons the instructor owns
             } elseif ($userType === 'Student') {
-                $classIds = \App\Models\StudentClass::where('idnumber', $userIdnumber)
-                            ->pluck('class_id');
-                $q->whereIn('class_id', $classIds);
+                $classIds = StudentClass::where('idnumber', $userIdnumber)->pluck('class_id');
+                $q->whereIn('class_id', $classIds); // Lessons in student's classes
             }
 
             if ($lessonId) {
-                $q->where('id', $lessonId);
+                $q->where('id', $lessonId); // Optional filter by specific lesson
             }
         });
 

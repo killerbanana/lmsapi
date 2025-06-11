@@ -14,10 +14,15 @@ return new class extends Migration
         Schema::create('lessons', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            
+            // Foreign key to users (e.g., instructor's idnumber)
             $table->string('idnumber');
-            $table->string('class_id');
-            $table->foreign('class_id')->references('class_id')->on('classes')->onDelete('cascade');
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
+            
+            // Foreign key to classes table
+            $table->string('class_id'); // Change from integer
+            $table->foreign('class_id')->references('class_id')->on('classes')->onDelete('cascade');
+
             $table->string('description')->nullable();
             $table->timestamps();
         });
@@ -28,6 +33,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('lesson');
+        Schema::dropIfExists('lessons');
     }
 };

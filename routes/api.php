@@ -41,7 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/register/teacher', [UserController::class, 'registerTeacher'])
         ->middleware('check.ability:register-teacher');
 
-    // Subject Routes
+    // Lessons Routes
     Route::post('/lesson/create', [LessonController::class, 'createLesson'])
         ->middleware('check.ability:create-lesson');
     
@@ -49,7 +49,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('check.ability:view-lessons');
 
     Route::put('/lessons/{id}', [LessonController::class, 'updateLesson'])->middleware('check.ability:update-lessons');
+
     Route::delete('/lessons/{id}', [LessonController::class, 'deleteLesson'])->middleware('check.ability:delete-lessons');
+
+    Route::post('/lessons/add-student', [LessonController::class, 'assignStudentToLessons'])->middleware('check.ability:add-student-lessons');
 
     // Class Routes
     Route::post('/class/create', [ClassesController::class, 'createClass'])
@@ -110,6 +113,8 @@ Route::middleware('auth:sanctum')->group(function () {
     //SECTION
     Route::post('/section', [SectionController::class, 'create'])
         ->middleware('check.ability:create-section');
+
     Route::get('/section', [SectionController::class, 'indexAll'])->middleware('check.ability:view-section');
+
     Route::put('/section/{id}', [SectionController::class, 'update'])->middleware('check.ability:update-section');
 });
