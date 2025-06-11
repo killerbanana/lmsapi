@@ -52,40 +52,22 @@ class TeacherClassController extends Controller
     {
         $user = Auth::user();
 
-        $perPage = $request->query('perPage', 10); // default 10 items per page
-        $query = null;
+        $perPage = $request->query('perPage', 10); // default 10 per page
+        $searchClassId = $request->query('class_id');
+        $searchClassName = $request->query('class_name');
 
         if ($user->usertype === 'Administrator') {
             // Admin sees all classes
             $query = Classes::query();
-            $paginated = $query->paginate($perPage);
 
-            return response()->json([
-                'total' => $paginated->total(),
-                'per_page' => $paginated->perPage(),
-                'current_page' => $paginated->currentPage(),
-                'last_page' => $paginated->lastPage(),
-                'classes' => $paginated->items(),
-            ], 200);
-            
-        } 
+            if ($searchClassId) {
+                $query->where('class_id', $searchClassId);
+            }
 
-        if($user->usertype === 'Student'){
-            $query = StudentClass::where('idnumber', $user->idnumber);
-            $paginated = $query->paginate($perPage);
+            if ($searchClassName) {
+                $query->where('class_name', 'LIKE', '%' . $searchClassName . '%');
+            }
 
-            return response()->json([
-                'total' => $paginated->total(),
-                'per_page' => $paginated->perPage(),
-                'current_page' => $paginated->currentPage(),
-                'last_page' => $paginated->lastPage(),
-                'classes' => $paginated->items(),
-            ], 200);
-        }
-        
-        if($user->usertype === 'Teacher') {
-            // Others see only their own classes
-            $query = TeacherClass::where('idnumber', $user->idnumber);
             $paginated = $query->paginate($perPage);
 
             return response()->json([
@@ -96,5 +78,59 @@ class TeacherClassController extends Controller
                 'classes' => $paginated->items(),
             ], 200);
         }
+
+        if ($user->usertype === 'Student') {
+            $query = StudentClass::where('idnumber', $user->idnumber)->with('class');
+
+            if ($searchClassId) {
+                $query->whereHas('class', function ($q) use ($searchClassId) {
+                    $q->where('class_id', $searchClassId);
+                });
+            }
+
+            if ($searchClassName) {
+                $query->whereHas('class', function ($q) use ($searchClassName) {
+                    $q->where('class_name', 'LIKE', '%' . $searchClassName . '%');
+                });
+            }
+
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'classes' => $paginated->items(),
+            ], 200);
+        }
+
+        if ($user->usertype === 'Teacher') {
+            $query = TeacherClass::where('idnumber', $user->idnumber)->with('class');
+
+            if ($searchClassId) {
+                $query->whereHas('class', function ($q) use ($searchClassId) {
+                    $q->where('class_id', $searchClassId);
+                });
+            }
+
+            if ($searchClassName) {
+                $query->whereHas('class', function ($q) use ($searchClassName) {
+                    $q->where('class_name', 'LIKE', '%' . $searchClassName . '%');
+                });
+            }
+
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'classes' => $paginated->items(),
+            ], 200);
+        }
+
+        return response()->json(['message' => 'User type not supported.'], 403);
     }
 }

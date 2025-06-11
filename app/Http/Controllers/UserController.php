@@ -629,8 +629,24 @@ class UserController extends Controller
     public function getStudents(Request $request)
     {
         $perPage = $request->query('perPage', 10);  // default 10 per page
+        $idnumber = $request->query('idnumber');
+        $name = $request->query('name');
 
-        $paginated = Students::paginate($perPage);
+        $query = Students::query();
+
+        if ($idnumber) {
+            $query->where('idnumber', 'LIKE', '%' . $idnumber . '%');
+        }
+
+        if ($firstname) {
+            $query->where('firstname', 'LIKE', '%' . $firstname . '%');
+        }
+
+        if ($lastname) {
+            $query->where('lastname', 'LIKE', '%' . $lastname . '%');
+        }
+
+        $paginated = $query->paginate($perPage);
 
         return response()->json([
             'total' => $paginated->total(),
@@ -644,8 +660,24 @@ class UserController extends Controller
     public function getTeachers(Request $request)
     {
         $perPage = $request->query('perPage', 10);  // default 10 per page
+        $idnumber = $request->query('idnumber');
+        $name = $request->query('name');
 
-        $paginated = Teachers::paginate($perPage);
+        $query = Teachers::query();
+
+        if ($idnumber) {
+            $query->where('idnumber', 'LIKE', '%' . $idnumber . '%');
+        }
+
+        if ($firstname) {
+            $query->where('firstname', 'LIKE', '%' . $firstname . '%');
+        }
+
+        if ($lastname) {
+            $query->where('lastname', 'LIKE', '%' . $lastname . '%');
+        }
+
+        $paginated = $query->paginate($perPage);
 
         return response()->json([
             'total' => $paginated->total(),
@@ -659,8 +691,25 @@ class UserController extends Controller
     public function getParents(Request $request)
     {
         $perPage = $request->query('perPage', 10);  // default 10 per page
+        $idnumber = $request->query('idnumber');
+        $firstname = $request->query('firstname');
+        $lastname = $request->query('lastname');
 
-        $paginated = Parents::paginate($perPage);
+        $query = \App\Models\Parents::query();
+
+        if ($idnumber) {
+            $query->where('idnumber', 'LIKE', '%' . $idnumber . '%');
+        }
+
+        if ($firstname) {
+            $query->where('firstname', 'LIKE', '%' . $firstname . '%');
+        }
+
+        if ($lastname) {
+            $query->where('lastname', 'LIKE', '%' . $lastname . '%');
+        }
+
+        $paginated = $query->paginate($perPage);
 
         return response()->json([
             'total' => $paginated->total(),

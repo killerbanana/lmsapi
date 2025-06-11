@@ -21,16 +21,41 @@ class ClassesController extends Controller
     {
         $user = Auth::user();
 
-        // Only allow Administrator
-        if ($user->usertype !== 'Administrator') {
+        $perPage = $request->query('perPage', 10);
+        $type = $request->query('type', 'student'); // default to 'student'
+        $searchClassId = $request->query('class_id');
+        $searchClassName = $request->query('class_name');
+
+        // Allow only these user types
+        if (!in_array($user->usertype, ['Administrator', 'Student', 'Teacher'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $perPage = $request->query('perPage', 10); // default 10 per page
-        $type = $request->query('type', 'student'); // default to student if not provided
-
         if ($type === 'student') {
-            $query = StudentClass::query();
+            $query = StudentClass::query()->with('class');
+
+            if (!in_array($user->usertype, ['Administrator', 'Student'])) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+
+            // Only own classes if Student
+            if ($user->usertype === 'Student') {
+                $query->where('idnumber', $user->idnumber);
+            }
+
+            // Admin can view all student classes
+            if ($searchClassId) {
+                $query->whereHas('class', function ($q) use ($searchClassId) {
+                    $q->where('class_id', $searchClassId);
+                });
+            }
+
+            if ($searchClassName) {
+                $query->whereHas('class', function ($q) use ($searchClassName) {
+                    $q->where('class_name', 'LIKE', '%' . $searchClassName . '%');
+                });
+            }
+
             $paginated = $query->paginate($perPage);
 
             return response()->json([
@@ -40,23 +65,44 @@ class ClassesController extends Controller
                 'last_page' => $paginated->lastPage(),
                 'classes' => $paginated->items(),
             ], 200);
-        } elseif ($type === 'teacher') {
-            $query = TeacherClass::query();
-            $paginated = $query->paginate($perPage);
-
-            return response()->json([
-                'total' => $paginated->total(),
-                'per_page' => $paginated->perPage(),
-                'current_page' => $paginated->currentPage(),
-                'last_page' => $paginated->lastPage(),
-                'classes' => $paginated->items(),
-            ], 200);
-
-        } else {
-            return response()->json(['message' => 'Invalid type. Must be student or teacher.'], 400);
         }
 
-        
+        if ($type === 'teacher') {
+            $query = TeacherClass::query()->with('class');
+            
+            if (!in_array($user->usertype, ['Administrator', 'Teacher'])) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+            // Only own classes if Teacher
+            if ($user->usertype === 'Teacher') {
+                $query->where('idnumber', $user->idnumber);
+            }
+
+            // Admin can view all teacher classes
+            if ($searchClassId) {
+                $query->whereHas('class', function ($q) use ($searchClassId) {
+                    $q->where('class_id', $searchClassId);
+                });
+            }
+
+            if ($searchClassName) {
+                $query->whereHas('class', function ($q) use ($searchClassName) {
+                    $q->where('class_name', 'LIKE', '%' . $searchClassName . '%');
+                });
+            }
+
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'classes' => $paginated->items(),
+            ], 200);
+        }
+
+        return response()->json(['message' => 'Invalid type. Must be student or teacher.'], 400);
     }
 
     public function createClass(Request $request)
