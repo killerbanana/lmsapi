@@ -11,6 +11,7 @@ use App\Http\Controllers\OtpController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\TeachersController;
 use App\Http\Controllers\LessonStudentController;
+use App\Http\Controllers\AnnouncementController;
 use Illuminate\Support\Facades\Auth;
 
 
@@ -124,5 +125,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/section-progress/update', [SectionController::class, 'updateSectionProgress'])->middleware('check.ability:update-section-progress');
 
     Route::post('/section/assessment', [SectionController::class, 'createAssessment'])
-        ->middleware('check.ability:create-section-assessment');
+        ->middleware('check.ability:create-section-assessme nt');
+
+
+
+    Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('check.ability:post-announcement');
+
+    Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('check.ability:post-announcement');
+
+    Route::get('/announcements/{id}', [AnnouncementController::class, 'show'])->middleware('check.ability:get-announcement');
+
+    Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy'])->middleware('check.ability:delete-announcement');
+
+    Route::put('/announcements/{id}', [AnnouncementController::class, 'update'])->middleware('check.ability:update-announcement');
+
+    Route::post('/send-sms', [AnnouncementController::class, 'sendSms'])->middleware('check.ability:send-sms');
 });
