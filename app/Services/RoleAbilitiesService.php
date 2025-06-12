@@ -10,8 +10,8 @@ class RoleAbilitiesService
         $roleAbilities = [
             'Administrator' => ['*'],
             'Teacher' => ['view-students', 'grade-students', 'update-profile', 'subject-assign-student', 'class-assign-student', 'create-lesson',
-        'view-lessons', 'view-classes', 'update-lessons', 'delete-lessons','create-section', 'view-section', 'update-section', 'view-classes-all', 'add-student-lessons'],
-            'Student' => ['view-grades', 'update-profile', 'answer-module', 'view-classes', 'view-lessons', 'view-section', 'update-section', 'view-classes-all', ],
+        'view-lessons', 'create-section-assessment', 'view-classes', 'update-lessons', 'delete-lessons','create-section', 'view-section', 'update-section', 'view-classes-all', 'add-student-lessons', 'update-lesson-progress', 'update-section-progress'],
+            'Student' => ['view-grades', 'update-profile', 'answer-module', 'view-classes', 'view-lessons', 'view-section', 'update-section', 'view-classes-all', 'update-lesson-progress', 'update-section-progress'],
             'Parent' => ['read-only'],
         ];
 

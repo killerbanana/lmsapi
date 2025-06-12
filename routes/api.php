@@ -10,6 +10,7 @@ use App\Http\Controllers\StudentSubjectController;
 use App\Http\Controllers\OtpController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\TeachersController;
+use App\Http\Controllers\LessonStudentController;
 use Illuminate\Support\Facades\Auth;
 
 
@@ -53,6 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/lessons/{id}', [LessonController::class, 'deleteLesson'])->middleware('check.ability:delete-lessons');
 
     Route::post('/lessons/add-student', [LessonController::class, 'assignStudentToLessons'])->middleware('check.ability:add-student-lessons');
+
+     Route::post('/lesson/update-progress', [LessonStudentController::class, 'updateLessonProgress'])->middleware('check.ability:update-lesson-progress');
 
     // Class Routes
     Route::post('/class/create', [ClassesController::class, 'createClass'])
@@ -114,7 +117,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/section', [SectionController::class, 'create'])
         ->middleware('check.ability:create-section');
 
-    Route::get('/section', [SectionController::class, 'indexAll'])->middleware('check.ability:view-section');
+    Route::get('/section', [SectionController::class, 'getAllSection'])->middleware('check.ability:view-section');
 
     Route::put('/section/{id}', [SectionController::class, 'update'])->middleware('check.ability:update-section');
+
+    Route::post('/section-progress/update', [SectionController::class, 'updateSectionProgress'])->middleware('check.ability:update-section-progress');
+
+    Route::post('/section/assessment', [SectionController::class, 'createAssessment'])
+        ->middleware('check.ability:create-section-assessment');
 });
