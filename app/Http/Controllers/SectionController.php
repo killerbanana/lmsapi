@@ -240,13 +240,13 @@ class SectionController extends Controller
     public function getAllSection(Request $request)
     {
         $user = Auth::user();
-        $classId = $request->query('class_id');
+        $requestedClassId = $request->query('class_id');
 
         if (!in_array($user->usertype, ['Administrator', 'Teacher', 'Student'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        // Determine class IDs based on role
+        // Get allowed class IDs based on role
         $classIds = [];
 
         if ($user->usertype === 'Teacher') {
@@ -254,27 +254,29 @@ class SectionController extends Controller
                 ->where('idnumber', $user->idnumber)
                 ->pluck('class_id')
                 ->toArray();
-        }
-
-        if ($user->usertype === 'Student') {
+        } elseif ($user->usertype === 'Student') {
             $classIds = \DB::table('class_students')
                 ->where('idnumber', $user->idnumber)
                 ->pluck('class_id')
                 ->toArray();
         }
 
-        // If a specific class ID is requested, prioritize it
-        if ($classId) {
-            $classIds = [$classId];
+        // If a specific class ID is requested, ensure the user has access
+        if ($requestedClassId) {
+            if (!in_array($requestedClassId, $classIds)) {
+                return response()->json(['message' => 'Access to this class is not allowed.'], 403);
+            }
+            $classIds = [$requestedClassId];
         }
 
-        // Load lessons and sections
+        // Fetch lessons from allowed classes
         $lessons = \App\Models\Lesson::with('class')
             ->whereIn('class_id', $classIds)
             ->get();
 
         $lessonIds = $lessons->pluck('id')->toArray();
 
+        // Fetch related sections
         $sections = \App\Models\Section::with([
             'resources',
             'completionActions',
@@ -285,7 +287,7 @@ class SectionController extends Controller
         ->whereIn('lesson_id', $lessonIds)
         ->get();
 
-        // Group sections by class → lesson
+        // Group by class → lessons → sections
         $grouped = $lessons->groupBy('class_id')->map(function ($classLessons, $classId) use ($sections) {
             return [
                 'class_id' => $classId,
