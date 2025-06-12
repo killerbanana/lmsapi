@@ -126,6 +126,8 @@ class LessonController extends Controller
         ], 200);
     }
 
+    
+
     public function getAllLessons(Request $request)
     {
         try {

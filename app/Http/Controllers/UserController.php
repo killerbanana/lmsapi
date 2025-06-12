@@ -63,7 +63,6 @@ class UserController extends Controller
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
             'guardian_contact' => 'nullable|string',
-            
             'photo' => 'nullable|file|image|max:5120',
         ]);
 
@@ -233,6 +232,7 @@ class UserController extends Controller
             'fathercontact' => 'nullable|string',
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
+            'status' => 'nullable|in:active,inactive,blocked',
             'guardian_contact' => 'nullable|string',
             'photo' => 'nullable|file|image|max:5120', // optional photo
         ]);
@@ -630,7 +630,8 @@ class UserController extends Controller
     {
         $perPage = $request->query('perPage', 10);  // default 10 per page
         $idnumber = $request->query('idnumber');
-        $name = $request->query('name');
+        $firstname = $request->query('firstname');
+        $lastname = $request->query('lastname');
 
         $query = Students::query();
 
@@ -661,7 +662,8 @@ class UserController extends Controller
     {
         $perPage = $request->query('perPage', 10);  // default 10 per page
         $idnumber = $request->query('idnumber');
-        $name = $request->query('name');
+        $firstname = $request->query('firstname');
+        $lastname = $request->query('lastname');
 
         $query = Teachers::query();
 

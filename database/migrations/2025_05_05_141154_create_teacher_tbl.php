@@ -21,10 +21,10 @@ return new class extends Migration
             $table->date('birthdate')->nullable();
             $table->string('phone')->nullable();
             $table->string('address')->nullable();
-            $table->string('gender')->nullable(); // Optional: use ENUM or string
+            $table->string('gender')->nullable();
             $table->text('photo')->nullable();
-            $table->enum('status', ['active', 'inactive', 'pending'])->default('active');
-            $table->timestamps(); // created_at and updated_at
+            $table->enum('status', ['active', 'inactive', 'blocked'])->default('active');
+            $table->timestamps();
         });
     }
 

@@ -9,9 +9,9 @@ class RoleAbilitiesService
     {
         $roleAbilities = [
             'Administrator' => ['*'],
-            'Teacher' => ['view-students', 'grade-students', 'update-profile', 'subject-assign-student', 'class-assign-student', 'create-lesson',
-        'view-lessons', 'create-section-assessment', 'view-classes', 'update-lessons', 'delete-lessons','create-section', 'view-section', 'update-section', 'view-classes-all', 'add-student-lessons', 'update-lesson-progress', 'update-section-progress'],
-            'Student' => ['view-grades', 'update-profile', 'answer-module', 'view-classes', 'view-lessons', 'view-section', 'update-section', 'view-classes-all', 'update-lesson-progress', 'update-section-progress'],
+            'Teacher' => ['send-sms', 'get-announcement',  'post-announcement', 'delete-announcement', 'view-students', 'grade-students', 'update-profile', 'subject-assign-student', 'class-assign-student', 'create-lesson',
+        'view-lessons', 'update-announcement', 'create-section-assessment', 'view-classes', 'update-lessons', 'delete-lessons','create-section', 'view-section', 'update-section', 'view-classes-all', 'add-student-lessons', 'update-lesson-progress', 'update-section-progress'],
+            'Student' => ['get-announcement',  'view-grades', 'update-profile', 'answer-module', 'view-classes', 'view-lessons', 'view-section', 'update-section', 'view-classes-all', 'update-lesson-progress', 'update-section-progress'],
             'Parent' => ['read-only'],
         ];
 
