@@ -51,4 +51,11 @@ class Lesson extends Model
     {
         return $this->hasMany(LessonStudent::class, 'lesson_id');
     }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'lesson_student', 'lesson_id', 'idnumber', 'id', 'idnumber')
+            ->withPivot('progress')
+            ->withTimestamps();
+    }
 }
