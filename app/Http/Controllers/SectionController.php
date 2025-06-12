@@ -242,56 +242,65 @@ class SectionController extends Controller
         $user = Auth::user();
         $classId = $request->query('class_id');
 
-        if (!in_array($user->usertype, ['Administrator', 'Teacher'])) {
+        if (!in_array($user->usertype, ['Administrator', 'Teacher', 'Student'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $lessonsQuery = \App\Models\Lesson::with('class');
+        // Determine class IDs based on role
+        $classIds = [];
 
-        // Filter lessons by the teacher's classes
         if ($user->usertype === 'Teacher') {
-            $lessonsQuery->whereIn('class_id', function ($q) use ($user) {
-                $q->select('class_id')
-                ->from('class_teachers')
-                ->where('idnumber', $user->idnumber);
-            });
+            $classIds = \DB::table('class_teachers')
+                ->where('idnumber', $user->idnumber)
+                ->pluck('class_id')
+                ->toArray();
         }
 
-        // Filter by specific class if provided
+        if ($user->usertype === 'Student') {
+            $classIds = \DB::table('class_students')
+                ->where('idnumber', $user->idnumber)
+                ->pluck('class_id')
+                ->toArray();
+        }
+
+        // If a specific class ID is requested, prioritize it
         if ($classId) {
-            $lessonsQuery->where('class_id', $classId);
+            $classIds = [$classId];
         }
 
-        // Get all relevant lessons
-        $lessons = $lessonsQuery->get();
-        $lessonIds = $lessons->pluck('id')->toArray();
-
-        // Get all related sections with eager-loaded relations
-        $sections = \App\Models\Section::with(['resources', 'completionActions', 'lesson'])
-            ->whereIn('lesson_id', $lessonIds)
+        // Load lessons and sections
+        $lessons = \App\Models\Lesson::with('class')
+            ->whereIn('class_id', $classIds)
             ->get();
 
-        // Group sections by lesson
-        $grouped = $lessons->map(function ($lesson) use ($sections) {
+        $lessonIds = $lessons->pluck('id')->toArray();
+
+        $sections = \App\Models\Section::with([
+            'resources',
+            'completionActions',
+            'lesson',
+            'contentSections',
+            'assessmentSection'
+        ])
+        ->whereIn('lesson_id', $lessonIds)
+        ->get();
+
+        // Group sections by class → lesson
+        $grouped = $lessons->groupBy('class_id')->map(function ($classLessons, $classId) use ($sections) {
             return [
-                'lesson' => $lesson,
-                'sections' => $sections->where('lesson_id', $lesson->id)->map(function ($section) {
-                    if ($section->type === 'content') {
-                        $section->load('contentSections');
-                    }
-                    if ($section->type === 'assessment') {
-                        $section->load('assessmentSection');
-                    }
-
-
-                    return $section;
-                })->values()
+                'class_id' => $classId,
+                'lessons' => $classLessons->map(function ($lesson) use ($sections) {
+                    return [
+                        'lesson' => $lesson,
+                        'sections' => $sections->where('lesson_id', $lesson->id)->values(),
+                    ];
+                })->filter(fn ($item) => $item['sections']->isNotEmpty())->values()
             ];
-        })->filter(fn ($item) => $item['sections']->isNotEmpty())->values();
+        })->values();
 
         return response()->json([
-            'message' => 'Sections grouped by lesson',
-            'data' => $grouped
+            'message' => 'Sections grouped by class and lesson',
+            'data' => $grouped,
         ]);
     }
 
