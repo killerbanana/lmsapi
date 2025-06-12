@@ -13,13 +13,14 @@ return new class extends Migration
     {
         Schema::create('section_progress', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('idnumber'); // Or idnumber if you use that
+            $table->string('idnumber'); // match users.idnumber which is a string
             $table->unsignedBigInteger('section_id');
             $table->enum('status', ['not_started', 'in_progress', 'completed'])->default('not_started');
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
-            $table->foreign('idnumber')->references('id')->on('user')->onDelete('cascade');
+
+            $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
             $table->foreign('section_id')->references('id')->on('sections')->onDelete('cascade');
         });
 

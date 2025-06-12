@@ -43,5 +43,16 @@ class Section extends Model
     {
         return $this->hasMany(SectionCompletionAction::class);
     }
+
+    public function contentSections()
+    {
+        return $this->hasMany(\App\Models\ContentSection::class); // Adjust namespace if needed
+    }
+
+    public function assessmentSection()
+    {
+        return $this->hasMany(\App\Models\QuizAssessment::class); // Adjust namespace if needed
+    }
+    
 }
 
