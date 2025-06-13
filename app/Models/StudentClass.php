@@ -21,7 +21,9 @@ class StudentClass extends Model
         return $this->belongsTo(Classes::class, 'class_id', 'class_id');
     }
 
-    // Each entry belongs to one student
+    /**
+     * Relationship: Belongs to a student (User model by idnumber).
+     */
     public function student()
     {
         return $this->belongsTo(User::class, 'idnumber', 'idnumber');

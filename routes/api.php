@@ -12,6 +12,7 @@ use App\Http\Controllers\SectionController;
 use App\Http\Controllers\TeachersController;
 use App\Http\Controllers\LessonStudentController;
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\ParentsController;
 use Illuminate\Support\Facades\Auth;
 
 
@@ -104,6 +105,9 @@ Route::middleware('auth:sanctum')->group(function () {
     //Parents
     Route::get('/parents', [UserController::class, 'getparents'])
     ->middleware('check.ability:view-parents');
+
+    Route::get('/get-student', [ParentsController::class, 'getLinkedStudents'])
+    ->middleware('check.ability:view-students-parent');
 
     Route::put('/parent/{idnumber}', [UserController::class, 'updateParentInfo'])
     ->middleware('check.ability:update-parent');
