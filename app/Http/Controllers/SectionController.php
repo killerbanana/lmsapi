@@ -549,4 +549,215 @@ class SectionController extends Controller
             'lesson_progress' => $progress
         ]);
     }
+
+    public function submitQuizAnswer(Request $request, $quizAssessmentId)
+    {
+        $user = Auth::user();
+
+        if (!$user || $user->usertype !== 'Student') {
+            return response()->json(['error' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'answer_text' => 'nullable|string',
+            'file' => 'nullable|file|max:5120', // Max 5MB
+        ]);
+
+        $studentId = $user->idnumber;
+
+        $quiz = QuizAssessment::findOrFail($quizAssessmentId);
+
+        // Ensure the student is linked to this quiz
+        $existing = DB::table('quiz_assessment_student')
+            ->where('quiz_assessment_id', $quiz->id)
+            ->where('student_idnumber', $studentId)
+            ->first();
+
+        if (!$existing) {
+            return response()->json(['error' => 'Not linked to this quiz.'], 403);
+        }
+
+        // Check attempt limit
+        if ($existing->attempts >= $quiz->max_attempts) {
+            return response()->json([
+                'error' => 'Maximum number of attempts reached.'
+            ], 403);
+        }
+
+        // Upload file to Firebase if provided
+        $fileUrl = $existing->file_path ?? null;
+
+        if ($request->hasFile('file')) {
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $bucket = $firebase->createStorage()->getBucket();
+
+            $file = $request->file('file');
+            $firebaseFilePath = 'quiz_submissions/' . uniqid() . '_' . $file->getClientOriginalName();
+
+            $bucket->upload(
+                fopen($file->getRealPath(), 'r'),
+                ['name' => $firebaseFilePath]
+            );
+
+            $fileUrl = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+        }
+
+        // Update submission
+        DB::table('quiz_assessment_student')
+            ->where('quiz_assessment_id', $quiz->id)
+            ->where('student_idnumber', $studentId)
+            ->update([
+                'answer_text' => $request->input('answer_text'),
+                'file_path' => $fileUrl,
+                'submitted_at' => now(),
+                'attempts' => DB::raw('attempts + 1'),
+                'updated_at' => now(),
+            ]);
+
+        $this->updateSectionAndLessonProgress($quiz->section_id, $user->idnumber);
+
+        return response()->json(['message' => 'Quiz answer submitted successfully.']);
+    }
+
+    public function checkQuizAnswers($quizAssessmentId)
+    {
+        $user = Auth::user();
+
+        // Ensure the user is a teacher
+        if (!$user || $user->usertype !== 'Teacher') {
+            return response()->json(['error' => 'Unauthorized.'], 403);
+        }
+
+        // Get the quiz
+        $quiz = QuizAssessment::findOrFail($quizAssessmentId);
+
+        // Fetch all submissions
+        $submissions = DB::table('quiz_assessment_student')
+            ->where('quiz_assessment_id', $quiz->id)
+            ->join('students', 'quiz_assessment_student.student_idnumber', '=', 'students.idnumber')
+            ->select(
+                'students.idnumber',
+                'students.firstname',
+                'students.lastname',
+                'quiz_assessment_student.answer_text',
+                'quiz_assessment_student.file_path',
+                'quiz_assessment_student.submitted_at',
+                'quiz_assessment_student.attempts',
+                'quiz_assessment_student.score'
+            )
+            ->orderByDesc('quiz_assessment_student.submitted_at')
+            ->get();
+
+        return response()->json([
+            'quiz_id' => $quiz->id,
+            'quiz_title' => $quiz->title,
+            'submissions' => $submissions,
+        ]);
+    }
+
+    public function gradeStudentQuiz(Request $request, $quizAssessmentId, $studentIdnumber)
+    {
+        $user = Auth::user();
+
+        // Ensure the user is a teacher
+        if (!$user || $user->usertype !== 'Teacher') {
+            return response()->json(['error' => 'Unauthorized.'], 403);
+        }
+
+        // Validate score input
+        $request->validate([
+            'score' => 'required|integer|min:0',
+        ]);
+
+        // Ensure quiz exists
+        $quiz = QuizAssessment::with('section.lesson.class')->findOrFail($quizAssessmentId);
+
+        // Get the class from quiz's section > lesson > class
+        $classId = optional($quiz->section->lesson->class)->class_id;
+
+        if (!$classId) {
+            return response()->json(['error' => 'Quiz is not linked to any class.'], 400);
+        }
+
+        // Check if teacher is enrolled in the class
+        $isAssigned = DB::table('class_teachers')
+            ->where('class_id', $classId)
+            ->where('idnumber', $user->idnumber)
+            ->exists();
+
+        if (!$isAssigned) {
+            return response()->json(['error' => 'You are not assigned to this class.'], 403);
+        }
+
+        // Check if student has a submission
+        $existing = DB::table('quiz_assessment_student')
+            ->where('quiz_assessment_id', $quiz->id)
+            ->where('student_idnumber', $studentIdnumber)
+            ->first();
+
+        if (!$existing) {
+            return response()->json(['error' => 'Student has no submission for this quiz.'], 404);
+        }
+
+        // Update the score
+        DB::table('quiz_assessment_student')
+            ->where('quiz_assessment_id', $quiz->id)
+            ->where('student_idnumber', $studentIdnumber)
+            ->update([
+                'score' => $request->input('score'),
+                'updated_at' => now(),
+            ]);
+
+        // ✅ FIXED LINE HERE
+        $this->updateSectionAndLessonProgress($quiz->section_id, $studentIdnumber);
+
+        return response()->json(['message' => 'Score updated successfully.']);
+    }
+
+    private function updateSectionAndLessonProgress($sectionId, $studentIdnumber)
+    {
+        $section = DB::table('sections')->where('id', $sectionId)->first();
+
+        if (!$section) return;
+
+        // Update or insert section progress
+        DB::table('section_progress')->updateOrInsert(
+            [
+                'section_id' => $section->id,
+                'idnumber' => $studentIdnumber,
+            ],
+            [
+                'status' => 'completed',
+                'completed_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        // Recalculate lesson progress
+        $lessonId = $section->lesson_id;
+
+        $totalRequired = DB::table('sections')
+            ->where('lesson_id', $lessonId)
+            ->where('require_for_completion', true)
+            ->count();
+
+        $completed = DB::table('section_progress')
+            ->join('sections', 'sections.id', '=', 'section_progress.section_id')
+            ->where('sections.lesson_id', $lessonId)
+            ->where('section_progress.idnumber', $studentIdnumber)
+            ->where('sections.require_for_completion', true)
+            ->where('section_progress.status', 'completed')
+            ->count();
+
+        $progress = $totalRequired > 0 ? ($completed / $totalRequired) * 100 : 0;
+
+        DB::table('lesson_student')
+            ->where('lesson_id', $lessonId)
+            ->where('idnumber', $studentIdnumber)
+            ->update([
+                'progress' => $progress,
+                'updated_at' => now(),
+            ]);
+    }
+
 }
