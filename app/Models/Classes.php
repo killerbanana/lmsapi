@@ -17,8 +17,19 @@ class Classes extends Model
         'status',
     ];
 
+    /**
+     * Relationship: class has many entries in the pivot table (class_students)
+     */
+    public function studentClasses()
+    {
+        return $this->hasMany(StudentClass::class, 'class_id', 'class_id');
+    }
+
+    /**
+     * Relationship: class has many students through the pivot table
+     */
     public function students()
     {
-        return $this->hasMany(Students::class, 'class_id', 'class_id');
+        return $this->belongsToMany(Students::class, 'class_students', 'class_id', 'idnumber', 'class_id', 'idnumber');
     }
 }

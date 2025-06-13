@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Students extends Model
 {
-    // The table associated with the model
-    protected $table = 'students';  // Optional, only if the table name is different from the plural form of the model name
+    // Explicitly define the table if it doesn't match the plural form
+    protected $table = 'students';
 
-    // The attributes that are mass assignable
+    // Mass assignable attributes
     protected $fillable = [
         'idnumber', 
         'firstname', 
@@ -28,16 +28,39 @@ class Students extends Model
         'status',
     ];
 
-    // If your table has the default created_at and updated_at columns
+    // Automatically maintain created_at and updated_at columns
     public $timestamps = true;
 
     /**
-     * Define the relationship with the User model.
-     * A PersonalInfo belongs to a User (in this case, by 'idnumber').
+     * A student has one linked user account.
      */
     public function user()
     {
         return $this->belongsTo(User::class, 'idnumber', 'idnumber');
     }
-    
+
+    /**
+     * A student belongs to many classes via the class_students pivot table.
+     */
+    public function classes()
+    {
+        return $this->belongsToMany(
+            Classes::class,
+            'class_students',
+            'idnumber',     // foreign key on pivot table for student
+            'class_id',     // foreign key on pivot table for class
+            'idnumber',     // local key on Students model
+            'class_id'      // local key on Classes model
+        );
+    }
+
+    /**
+     * A student belongs to many lessons via the lesson_student pivot table.
+     */
+    public function lessons()
+    {
+        return $this->belongsToMany(Lesson::class, 'lesson_student', 'idnumber', 'lesson_id', 'idnumber', 'id')
+                    ->withPivot('progress')
+                    ->withTimestamps();
+    }
 }

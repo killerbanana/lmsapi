@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Admin;
 use App\Models\Students;
 use App\Models\Teachers;
-use App\Models\Parents;
+use App\Models\ParentModel;
 use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
 use Illuminate\Support\Facades\Auth;
@@ -132,7 +132,7 @@ class UserController extends Controller
                     'usertype' => 'Parent',
                 ]);
 
-                Parents::create([
+                ParentModel::create([
                     'idnumber' => $fatherId,
                     'firstname' => $request->fathername,
                     'lastname' => $request->lastname,
@@ -155,7 +155,7 @@ class UserController extends Controller
                     'usertype' => 'Parent',
                 ]);
 
-                Parents::create([
+                ParentModel::create([
                     'idnumber' => $motherId,
                     'firstname' => $request->mothername,
                     'lastname' => $request->lastname,
@@ -178,6 +178,7 @@ class UserController extends Controller
             return response()->json(['error' => 'Registration failed', 'details' => $e->getMessage()], 500);
         }
     }
+
     public function deleteParent($idnumber)
     {
         try {
