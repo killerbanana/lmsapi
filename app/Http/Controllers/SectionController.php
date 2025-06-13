@@ -13,6 +13,8 @@ use Kreait\Firebase\Factory;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon; 
 use App\Models\TeacherClass;
+use App\Models\Students;
+use App\Models\DropboxAssessment;
 use Illuminate\Support\Facades\Auth;
 
 class SectionController extends Controller
@@ -20,6 +22,98 @@ class SectionController extends Controller
     /**
      * Create a new section for a lesson.
      */
+
+    public function getLessonSectionsWithTypesAndStudents($lessonId)
+    {
+        $sections = Section::with([
+            'dropboxAssessments.students',
+            'quizAssessments.students'
+        ])->where('lesson_id', $lessonId)->get();
+
+        $formattedSections = [];
+
+        foreach ($sections as $section) {
+            $sectionData = [
+                'section_id' => $section->id,
+                'section_title' => $section->title,
+                'type' => $section->subtype,
+            ];
+
+            if ($section->subtype === 'dropbox') {
+                $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) {
+                    return [
+                        'dropbox_id' => $dropbox->id,
+                        'title' => $dropbox->title,
+                        'students' => $dropbox->students->pluck('idnumber'),
+                    ];
+                });
+            } elseif ($section->subtype === 'quiz') {
+                $sectionData['quiz'] = $section->quizAssessments->map(function ($quiz) {
+                    return [
+                        'quiz_id' => $quiz->id,
+                        'title' => $quiz->title,
+                        'instructions' => $quiz->instructions,
+                        'students' => $quiz->students->pluck('idnumber'),
+                    ];
+                });
+            }
+
+            $formattedSections[] = $sectionData;
+        }
+
+        return response()->json([
+            'lessonId' => (int) $lessonId,
+            'sections' => $formattedSections
+        ]);
+    }
+
+    public function getSectionStudent($lessonId)
+    {
+        $user = Auth::user();
+
+        if (!$user || $user->usertype !== 'Student') {
+            return response()->json(['error' => 'Unauthorized.'], 403);
+        }
+
+        $studentIdnumber = $user->idnumber;
+
+        // Get all sections with subtype 'quiz' under the given lesson
+        $sections = Section::where('lesson_id', $lessonId)
+            ->where('subtype', 'quiz')
+            ->with(['quizAssessments' => function ($query) use ($studentIdnumber) {
+                $query->whereHas('students', function ($q) use ($studentIdnumber) {
+                    $q->where('student_idnumber', $studentIdnumber);
+                });
+            }])
+            ->get();
+
+        $formattedSections = [];
+
+        foreach ($sections as $section) {
+            $quizzes = $section->quizAssessments;
+
+            if ($quizzes->isEmpty()) {
+                continue; // No quiz assigned to this student
+            }
+
+            $formattedSections[] = [
+                'section_id' => $section->id,
+                'section_title' => $section->title,
+                'type' => $section->subtype,
+                'quiz_assessments' => $quizzes->map(function ($quiz) {
+                    return $quiz->toArray(); // ✅ returns all quiz fields
+                }),
+            ];
+        }
+
+        return response()->json([
+            'lessonId' => (int) $lessonId,
+            'sections' => $formattedSections
+        ]);
+    }
+
+
+
     public function create(Request $request)
     {
         $validated = $request->validate([
@@ -130,7 +224,7 @@ class SectionController extends Controller
             'completion_time_estimate' => 'nullable|integer|min:1',
 
             'type' => 'required|in:content,assessment,other',
-            'subtype' => 'required|string',
+            'subtype' => 'required|in:quiz,dropbox',
 
             'files' => 'nullable|array',
             'files.*' => 'file|max:10240',
@@ -144,11 +238,26 @@ class SectionController extends Controller
             'completion_actions.*.parameters' => 'nullable|array',
 
             'page_content' => 'nullable|string',
+
+            // Additional dynamic fields
+            'points' => 'nullable|integer|min:0',
+            'max_score' => 'nullable|integer|min:0',
+            'category' => 'nullable|string',
+            'start_date' => 'nullable|date',
+            'due_date' => 'nullable|date|after_or_equal:start_date',
+            'grading_scale' => 'nullable|string|in:Default,Custom',
+            'max_attempts' => 'nullable|integer|min:1',
+            'allow_late' => 'nullable|boolean',
+            'grading' => 'nullable|in:Normal,Bonus,Penalty',
+            'instructions' => 'nullable|string',
+            'timed' => 'nullable|string',
+            'instant_feedback' => 'nullable|string',
+            'instant_feedback' => 'nullable|string',
         ]);
+
 
         $userIdnumber = auth()->user()->idnumber;
 
-        // Check authorization
         $lesson = Lesson::where('id', $validated['lesson_id'])
             ->whereIn('class_id', function ($query) use ($userIdnumber) {
                 $query->select('class_id')
@@ -161,7 +270,7 @@ class SectionController extends Controller
             abort(403, 'You are not authorized to create a section for this lesson.');
         }
 
-        // Create section
+        // Create the section
         $section = Section::create([
             'lesson_id' => $validated['lesson_id'],
             'type' => $validated['type'],
@@ -169,33 +278,98 @@ class SectionController extends Controller
             'require_for_completion' => $validated['require_for_completion'] ?? false,
         ]);
 
+        // Handle Quiz or Dropbox creation
         if ($validated['type'] === 'assessment' && $validated['subtype'] === 'quiz') {
             $quiz = QuizAssessment::create([
                 'section_id' => $section->id,
                 'title' => $validated['title'] ?? 'Untitled Quiz',
-                'instructions' => null,
-                'points' => 100,
-                'category' => null,
+                'instructions' => $validated['instructions'] ?? 'Untitled Quiz',
+                'points' => $validated['points'],
+                'category' => $validated['category'],
                 'start' => now(),
                 'due' => now()->addDays(7),
+                'grading_scale' => $validated['grading_scale'] ?? 'Default',
+                'grading' => $validated['grading'] ?? 'Normal',
+                'max_attempts' => $validated['max_attempts'] ?? 1,
+                'allow_late' => $validated['allow_late'] ?? false,
+                'timed' => $validated['timed'] ?? false,
+                'instant_feedback' => $validated['instant_feedback'] ?? false,
+                'release_grades' => $validated['release_grades'] ?? 'Instant',
+                'grading_method' => $validated['grading_method'] ?? 'latest',
+                'disable_past_due' => $validated['disable_past_due'] ?? false,
+                'autocomplete_on_retake' => $validated['autocomplete_on_retake'] ?? false,
+                'randomize_order' => $validated['randomize_order'] ?? true,
+                'allow_review' => $validated['allow_review'] ?? true,
+                'allow_jump' => $validated['allow_jump'] ?? true,
+                'show_in_results' => $validated['show_in_results'] ?? [],
+                'library' => $validated['library'] ?? 'Personal',
+            ]);
+
+            $studentIdnumbers = DB::table('lesson_student')
+                ->where('lesson_id', $section->lesson_id)
+                ->pluck('idnumber');
+
+            $pivotData = $studentIdnumbers->map(function ($idnumber) use ($quiz) {
+                return [
+                    'quiz_assessment_id' => $quiz->id,
+                    'student_idnumber' => $idnumber,
+                    'score' => null,
+                    'submitted_at' => null,
+                    'attempts' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            })->toArray();
+
+            DB::table('quiz_assessment_student')->insert($pivotData);
+
+        } elseif ($validated['type'] === 'assessment' && $validated['subtype'] === 'dropbox') {
+            $dropbox = DropboxAssessment::create([
+                'section_id' => $section->id,
+                'title' => $validated['title'] ?? 'Untitled Dropbox',
+                'instructions' => $validated['instructions'] ?? null,
+                'points' => $validated['points'] ?? null,
+                'category' => $validated['category'] ?? null,
+                'start_date' => now(),
+                'due_date' => now()->addDays(7),
                 'grading_scale' => 'Default',
                 'grading' => 'Normal',
-                'max_attempts' => 1,
-                'allow_late' => false,
-                'timed' => false,
-                'instant_feedback' => false,
-                'release_grades' => 'Instant',
-                'grading_method' => 'latest',
-                'disable_past_due' => false,
-                'autocomplete_on_retake' => false,
-                'randomize_order' => true,
-                'allow_review' => true,
-                'allow_jump' => true,
-                'show_in_results' => [],
+                'max_attempts' => $validated['max_attempts'] ??1,
+                'allow_late' => $validated['allow_late'] ??false,
+                'timed' => $validated['timed'] ??false,
+                'instant_feedback' =>$validated['instant_feedback'] ?? false,
+                'release_grades' => $validated['release_grades'] ??'Instant',
+                'grading_method' => $validated['grading_method'] ??'latest',
+                'disable_past_due' => $validated['disable_past_due'] ??false,
+                'autocomplete_on_retake' => $validated['autocomplete_on_retake'] ??false,
+                'randomize_order' => $validated['randomize_order'] ??true,
+                'allow_review' => $validated['allow_review'] ??true,
+                'allow_jump' => $validated['allow_jump'] ??true,
+                'show_in_results' => $validated['show_in_results'] ??json_encode([]),
                 'library' => 'Personal',
             ]);
+
+            // 🔗 Link students to dropbox
+            $studentIdnumbers = DB::table('lesson_student')
+                ->where('lesson_id', $section->lesson_id)
+                ->pluck('idnumber');
+
+            $pivotData = $studentIdnumbers->map(function ($idnumber) use ($dropbox) {
+                return [
+                    'dropbox_assessment_id' => $dropbox->id,
+                    'student_idnumber' => $idnumber,
+                    'score' => null,
+                    'submitted_at' => null,
+                    'attempts' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            })->toArray();
+
+            DB::table('dropbox_assessment_student')->insert($pivotData);
         }
 
+        // 📁 Handle file uploads (Firebase)
         if ($request->hasFile('files')) {
             $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
             $bucket = $firebase->createStorage()->getBucket();
@@ -219,6 +393,7 @@ class SectionController extends Controller
             }
         }
 
+        // 📊 Track section progress
         $lessonStudentIds = DB::table('lesson_student')->where('lesson_id', $section->lesson_id)->pluck('idnumber');
 
         $sectionProgressData = $lessonStudentIds->map(function ($idnumber) use ($section) {
@@ -235,6 +410,7 @@ class SectionController extends Controller
 
         return response()->json(['message' => 'Section created successfully'], 201);
     }
+
 
 
     public function getAllSection(Request $request)
