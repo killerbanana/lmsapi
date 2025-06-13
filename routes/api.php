@@ -129,8 +129,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/section-progress/update', [SectionController::class, 'updateSectionProgress'])->middleware('check.ability:update-section-progress');
 
     Route::post('/section/assessment', [SectionController::class, 'createAssessment'])
-        ->middleware('check.ability:create-section-assessme nt');
+        ->middleware('check.ability:create-section-assessment');
 
+    Route::get('/section/{lessonId}/lesson-linked', [SectionController::class, 'getLessonSectionsWithTypesAndStudents'])
+        ->middleware('check.ability:section-student-linked');
+
+    Route::get('/section/{lessonId}/student', [SectionController::class, 'getSectionStudent'])
+    ->middleware('check.ability:section-student');
 
 
     Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('check.ability:post-announcement');

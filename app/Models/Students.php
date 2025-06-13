@@ -63,4 +63,19 @@ class Students extends Model
                     ->withPivot('progress')
                     ->withTimestamps();
     }
+    
+    public function dropboxAssessmentLinks()
+    {
+        return $this->hasMany(DropboxAssessmentStudent::class, 'student_idnumber', 'idnumber');
+    }
+    
+    public function dropboxAssessments()
+    {
+        return $this->belongsToMany(DropboxAssessment::class, 'dropbox_assessment_student', 'idnumber', 'dropbox_assessment_id', 'idnumber', 'id');
+    }
+
+    public function quizAssessments()
+    {
+        return $this->belongsToMany(QuizAssessment::class, 'quiz_assessment_student', 'idnumber', 'quiz_assessment_id', 'idnumber', 'id');
+    }
 }

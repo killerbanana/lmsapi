@@ -21,15 +21,15 @@ class Section extends Model
     ];
 
     /**
-     * The lesson this section belongs to.
+     * Get the lesson this section belongs to.
      */
     public function lesson()
     {
-        return $this->belongsTo(Lesson::class);  // check class name & namespace
+        return $this->belongsTo(Lesson::class);
     }
 
     /**
-     * Resources like PDFs or videos linked to this section.
+     * Get the resources (e.g., PDFs, videos) linked to this section.
      */
     public function resources()
     {
@@ -37,22 +37,34 @@ class Section extends Model
     }
 
     /**
-     * Completion actions that are triggered when this section is completed.
+     * Get the dropbox assessments for this section.
+     */
+    public function dropboxAssessments()
+    {
+        return $this->hasMany(DropboxAssessment::class);
+    }
+
+    /**
+     * Get the quiz assessments for this section.
+     */
+    public function quizAssessments()
+    {
+        return $this->hasMany(QuizAssessment::class);
+    }
+
+    /**
+     * Get the completion actions for this section.
      */
     public function completionActions()
     {
         return $this->hasMany(SectionCompletionAction::class);
     }
 
+    /**
+     * Get the content sections related to this section.
+     */
     public function contentSections()
     {
-        return $this->hasMany(\App\Models\ContentSection::class); // Adjust namespace if needed
+        return $this->hasMany(ContentSection::class);
     }
-
-    public function assessmentSection()
-    {
-        return $this->hasMany(\App\Models\QuizAssessment::class); // Adjust namespace if needed
-    }
-    
 }
-

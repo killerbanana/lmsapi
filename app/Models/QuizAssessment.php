@@ -53,5 +53,10 @@ class QuizAssessment extends Model
     {
         return $this->belongsTo(Section::class);
     }   
+
+    public function students()
+    {
+        return $this->belongsToMany(Students::class, 'quiz_assessment_student', 'quiz_assessment_id', 'student_idnumber', 'id', 'idnumber');
+    }
     
 }
