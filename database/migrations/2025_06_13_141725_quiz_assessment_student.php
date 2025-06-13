@@ -20,6 +20,8 @@ return new class extends Migration
             $table->unsignedInteger('score')->nullable();
             $table->timestamp('submitted_at')->nullable();
             $table->unsignedTinyInteger('attempts')->default(0);
+            $table->text('answer_text')->nullable(); // if text answer
+            $table->string('file_path')->nullable(); 
             $table->timestamps();
         });
     }
