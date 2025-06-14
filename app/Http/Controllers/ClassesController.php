@@ -34,7 +34,7 @@ class ClassesController extends Controller
         if ($type === 'student') {
             $query = StudentClass::query()->with('class');
 
-            if (!in_array($user->usertype, ['Administrator', 'Student'])) {
+            if (!in_array($user->usertype, ['Administrator', 'Student', 'Teacher'])) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
 
