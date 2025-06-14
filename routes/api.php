@@ -36,6 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/user/{idnumber}/change-password', [UserController::class, 'changePassword'])
     ->middleware('auth:sanctum'); 
+
+    Route::put('/user/{idnumber}/update-status', [UserController::class, 'updateStatus'])
+    ->middleware('auth:sanctum'); 
     
     // Registration Routes
     Route::post('/register/student', [UserController::class, 'registerStudent'])
