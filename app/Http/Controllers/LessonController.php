@@ -127,7 +127,6 @@ class LessonController extends Controller
     }
 
     
-
     public function getAllLessons(Request $request)
     {
         try {
@@ -152,6 +151,13 @@ class LessonController extends Controller
                 if ($classId) {
                     $query->where('class_id', $classId);
                 }
+
+                // Join with lesson_student to get progress
+                $query->leftJoin('lesson_student', function ($join) use ($user) {
+                    $join->on('lessons.id', '=', 'lesson_student.lesson_id')
+                        ->where('lesson_student.idnumber', '=', $user->idnumber);
+                })
+                ->addSelect('lessons.*', 'lesson_student.progress');
             }
 
             $paginated = $query->paginate($perPage);
@@ -170,6 +176,56 @@ class LessonController extends Controller
             ], 500);
         }
     }
+
+    // public function getAllLessons(Request $request)
+    // {
+    //     try {
+    //         $classId = $request->query('classId');
+    //         $perPage = $request->query('perPage', 10);
+    //         $user = Auth::user();
+
+    //         $query = Lesson::query();
+
+    //         if ($user->usertype === 'Administrator') {
+    //             if ($classId) {
+    //                 $query->where('class_id', $classId);
+    //             }
+    //         } elseif ($user->usertype === 'Teacher') {
+    //             $query->where('idnumber', $user->idnumber);
+    //             if ($classId) {
+    //                 $query->where('class_id', $classId);
+    //             }
+    //         } elseif ($user->usertype === 'Student') {
+    //             $classIds = StudentClass::where('idnumber', $user->idnumber)->pluck('class_id');
+    //             $query->whereIn('class_id', $classIds);
+    //             if ($classId) {
+    //                 $query->where('class_id', $classId);
+    //             }
+
+    //              // Join with lesson_student to get progress
+    //             $query->leftJoin('lesson_student', function ($join) use ($user) {
+    //                 $join->on('lessons.id', '=', 'lesson_student.lesson_id')
+    //                     ->where('lesson_student.idnumber', '=', $user->idnumber);
+    //             })
+    //             ->addSelect('lessons.*', 'lesson_student.progress');
+    //             }
+
+    //         $paginated = $query->paginate($perPage);
+
+    //         return response()->json([
+    //             'total' => $paginated->total(),
+    //             'per_page' => $paginated->perPage(),
+    //             'current_page' => $paginated->currentPage(),
+    //             'last_page' => $paginated->lastPage(),
+    //             'lessons' => $paginated->items(),
+    //         ], 200);
+    //     } catch (Exception $e) {
+    //         return response()->json([
+    //             'message' => 'An error occurred while fetching lessons.',
+    //             'error' => config('app.debug') ? $e->getMessage() : 'Server error'
+    //         ], 500);
+    //     }
+    // }
 
     public function updateLesson(Request $request, $id)
     {
