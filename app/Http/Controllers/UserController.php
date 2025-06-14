@@ -218,6 +218,49 @@ class UserController extends Controller
         return response()->json(['message' => 'Parent info updated successfully.']);
     }
 
+    public function updateStatus(Request $request, $idnumber)
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => 'nullable|in:active,inactive,blocked',
+            'user_type' => 'required|in:student,teacher',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        if ($request->user_type === "student") {
+            $student = Students::where('idnumber', $idnumber)->first();
+
+            if (!$student) {
+                return response()->json(['message' => 'Student not found.'], 404);
+            }
+
+            $student->status = $request->status;
+
+            if ($student->save()) {
+                return response()->json(['message' => 'Student status updated.']);
+            } else {
+                return response()->json(['message' => 'Failed to update student.'], 500);
+            }
+        } else { // user_type is 'teacher'
+            $teacher = Teachers::where('idnumber', $idnumber)->first();
+
+            if (!$teacher) {
+                return response()->json(['message' => 'Teacher not found.'], 404);
+            }
+
+            $teacher->status = $request->status;
+
+            if ($teacher->save()) {
+                return response()->json(['message' => 'Teacher status updated.']);
+            } else {
+                return response()->json(['message' => 'Failed to update teacher.'], 500);
+            }
+        }
+    }
+
+
     public function updateStudentInfo(Request $request, $idnumber)
     {
         // Validate input
