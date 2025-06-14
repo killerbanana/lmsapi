@@ -698,7 +698,7 @@ class UserController extends Controller
         $firstname = $request->query('firstname');
         $lastname = $request->query('lastname');
 
-        $query = \App\Models\Parents::query();
+        $query = ParentModel::query();
 
         if ($idnumber) {
             $query->where('idnumber', 'LIKE', '%' . $idnumber . '%');
