@@ -91,7 +91,7 @@ class SectionController extends Controller
 
         foreach ($sections as $section) {
             if ($section->quizAssessments->isEmpty()) {
-                continue; // Skip sections with no quizzes for this student
+                continue;
             }
 
             $formattedSections[] = [
@@ -104,27 +104,15 @@ class SectionController extends Controller
                 'updated_at' => $section->updated_at,
                 'quiz_assessments' => $section->quizAssessments->map(function ($quiz) {
                     return $quiz->toArray();
-                }),
+                })->values(),
             ];
         }
 
-        // Group by lesson_id (even if it's only one lesson)
-        $grouped = collect($formattedSections)
-            ->groupBy('lesson_id')
-            ->map(function ($sections, $lessonId) {
-                return [
-                    'lesson_id' => (int) $lessonId,
-                    'sections' => $sections->values()
-                ];
-            });
-
         return response()->json([
-            'lessons' => $grouped
+            'lesson_id' => (int) $lessonId,
+            'sections' => $formattedSections
         ]);
     }
-
-
-
 
     public function create(Request $request)
     {
