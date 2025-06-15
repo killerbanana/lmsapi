@@ -77,7 +77,7 @@ class SectionController extends Controller
 
         $studentIdnumber = $user->idnumber;
 
-        // Get all sections with subtype 'quiz' under the given lesson
+        // Get sections with subtype 'quiz' and only quizzes assigned to the student
         $sections = Section::where('lesson_id', $lessonId)
             ->where('subtype', 'quiz')
             ->with(['quizAssessments' => function ($query) use ($studentIdnumber) {
@@ -90,27 +90,39 @@ class SectionController extends Controller
         $formattedSections = [];
 
         foreach ($sections as $section) {
-            $quizzes = $section->quizAssessments;
-
-            if ($quizzes->isEmpty()) {
-                continue; // No quiz assigned to this student
+            if ($section->quizAssessments->isEmpty()) {
+                continue; // Skip sections with no quizzes for this student
             }
 
             $formattedSections[] = [
-                'section_id' => $section->id,
-                'section_title' => $section->title,
-                'type' => $section->subtype,
-                'quiz_assessments' => $quizzes->map(function ($quiz) {
-                    return $quiz->toArray(); // ✅ returns all quiz fields
+                'id' => $section->id,
+                'lesson_id' => $section->lesson_id,
+                'type' => $section->type,
+                'subtype' => $section->subtype,
+                'require_for_completion' => $section->require_for_completion,
+                'created_at' => $section->created_at,
+                'updated_at' => $section->updated_at,
+                'quiz_assessments' => $section->quizAssessments->map(function ($quiz) {
+                    return $quiz->toArray();
                 }),
             ];
         }
 
+        // Group by lesson_id (even if it's only one lesson)
+        $grouped = collect($formattedSections)
+            ->groupBy('lesson_id')
+            ->map(function ($sections, $lessonId) {
+                return [
+                    'lesson_id' => (int) $lessonId,
+                    'sections' => $sections->values()
+                ];
+            });
+
         return response()->json([
-            'lessonId' => (int) $lessonId,
-            'sections' => $formattedSections
+            'lessons' => $grouped
         ]);
     }
+
 
 
 
