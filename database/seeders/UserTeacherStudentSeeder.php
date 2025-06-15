@@ -14,7 +14,7 @@ class UserTeacherStudentSeeder extends Seeder
     public function run(): void
     {
         $faker = Faker::create();
-        $total = 50;
+        $total = 10;
 
         // Fetch 50 random user photos
         $response = Http::get('https://randomuser.me/api/', [
