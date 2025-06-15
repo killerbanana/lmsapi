@@ -27,6 +27,8 @@ Route::post('/verify-otp', [OtpController::class, 'verifyOtp']);
 // Public Auth Route
 Route::post('/login', [UserController::class, 'login']);
 
+Route::post('/send-sms', [AnnouncementController::class, 'sendSms']);
+
 Route::middleware('auth:sanctum')->group(function () {
 
     //Uer
@@ -158,6 +160,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy'])->middleware('check.ability:delete-announcement');
 
     Route::put('/announcements/{id}', [AnnouncementController::class, 'update'])->middleware('check.ability:update-announcement');
-
-    Route::post('/send-sms', [AnnouncementController::class, 'sendSms'])->middleware('check.ability:send-sms');
+    
 });

@@ -113,9 +113,16 @@ class AnnouncementController extends Controller
         $to = $request->input('phone');
         $message = $request->input('message');
 
-        $sms->send($to, $message);
-
-        return response()->json(['message' => 'SMS sent successfully!']);
+        try {
+            $sms->send($to, $message);
+            return response()->json(['message' => 'SMS sent successfully!']);
+        } catch (\Exception $e) {
+            \Log::error("SMS failed to send: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to send SMS.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
     
 }
