@@ -14,10 +14,11 @@ return new class extends Migration
         Schema::create('class_students', function (Blueprint $table) {
             $table->id();
             $table->string('idnumber');
-            $table->string('class_id');
+            $table->string('class_id');// Use string if class_id is not numeric
             $table->foreign('class_id')->references('class_id')->on('classes')->onDelete('cascade');
             $table->foreign('idnumber')->references('idnumber')->on('users')->onDelete('cascade');
             $table->enum('status', ['active', 'inactive'])->nullable()->default('active');
+            $table->integer('grade')->nullable();
             $table->timestamps();
         });
     }

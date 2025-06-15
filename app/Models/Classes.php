@@ -15,6 +15,7 @@ class Classes extends Model
         'photo',
         'tag',
         'status',
+        'grade',
     ];
 
     /**

@@ -208,6 +208,51 @@ class ClassesController extends Controller
             return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
         }
     }
+
+    public function gradeStudent(Request $request)
+    {
+        $user = Auth::user();
+
+        // Ensure the user is a teacher
+        if (!$user || $user->usertype !== 'Teacher') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'idnumber' => 'required|string|exists:users,idnumber', // student
+            'class_id' => 'required|string|exists:classes,class_id',
+            'grade' => 'required|integer|min:0|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // Check if the teacher is assigned to the class
+        $isAssigned = \App\Models\TeacherClass::where('idnumber', $user->idnumber)
+            ->where('class_id', $request->class_id)
+            ->exists();
+
+        if (!$isAssigned) {
+            return response()->json(['message' => 'You are not assigned to this class.'], 403);
+        }
+
+        // Check if the student is enrolled in the class
+        $classStudent = \App\Models\StudentClass::where('idnumber', $request->idnumber)
+            ->where('class_id', $request->class_id)
+            ->first();
+
+        if (!$classStudent) {
+            return response()->json(['message' => 'Student not enrolled in this class'], 404);
+        }
+
+        // Update the grade
+        $classStudent->grade = $request->grade;
+        $classStudent->save();
+
+        return response()->json(['message' => 'Student graded successfully.'], 200);
+    }
+
     public function deleteClass($id)
     {
         try {
