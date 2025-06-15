@@ -68,12 +68,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/class/create', [ClassesController::class, 'createClass'])
         ->middleware('check.ability:create-class');
 
+    Route::post('/class/grade-student', [ClassesController::class, 'gradeStudent'])
+        ->middleware('check.ability:grade-student');
+
     Route::get('/classes', [TeacherClassController::class, 'getAllClass'])
         ->middleware('check.ability:view-classes');
 
     Route::get('/linked-classes', [ClassesController::class, 'getAllClass'])
         ->middleware('check.ability:view-classes-all');
-
 
     Route::post('/class/assign/student', [StudentClassController::class, 'assignStudentToClass'])
         ->middleware('check.ability:class-assign-student');

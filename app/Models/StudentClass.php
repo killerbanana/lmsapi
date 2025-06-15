@@ -13,6 +13,7 @@ class StudentClass extends Model
     protected $fillable = [
         'idnumber', 
         'class_id', 
+        'grade',
     ];
 
     // Each entry belongs to one class

@@ -50,8 +50,8 @@ class Students extends Model
             'idnumber',     // foreign key on pivot table for student
             'class_id',     // foreign key on pivot table for class
             'idnumber',     // local key on Students model
-            'class_id'      // local key on Classes model
-        );
+            'class_id',     // local key on Classes model
+        )->withPivot('grade', 'status');
     }
 
     /**
