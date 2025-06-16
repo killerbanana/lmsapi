@@ -143,6 +143,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/section/{lessonId}/lesson-linked', [SectionController::class, 'getLessonSectionsWithTypesAndStudents'])
         ->middleware('check.ability:section-student-linked');
 
+    Route::get('/section/due/quiz', [SectionController::class, 'getDueQuizzesWithoutSubmission'])
+        ->middleware('check.ability:section-admin-lessons');
+
     Route::get('/section/{lessonId}/student', [SectionController::class, 'getSectionStudent'])
     ->middleware('check.ability:section-student');
 

@@ -78,4 +78,5 @@ class Students extends Model
     {
         return $this->belongsToMany(QuizAssessment::class, 'quiz_assessment_student', 'idnumber', 'quiz_assessment_id', 'idnumber', 'id');
     }
+    
 }

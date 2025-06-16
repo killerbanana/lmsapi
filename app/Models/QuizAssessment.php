@@ -11,7 +11,7 @@ class QuizAssessment extends Model
 
     protected $fillable = [
         'idnumber',
-        'section_id', // ✅ changed from 'lesson'
+        'section_id',
         'title',
         'instructions',
         'points',
@@ -52,11 +52,12 @@ class QuizAssessment extends Model
     public function section()
     {
         return $this->belongsTo(Section::class);
-    }   
+    }
 
     public function students()
     {
-        return $this->belongsToMany(Students::class, 'quiz_assessment_student', 'quiz_assessment_id', 'student_idnumber', 'id', 'idnumber');
+        return $this->belongsToMany(Students::class, 'quiz_assessment_student', 'quiz_assessment_id', 'student_idnumber')
+                    ->withPivot('score', 'submitted_at', 'attempts');
     }
     
 }
