@@ -23,7 +23,7 @@ class LessonSeeder extends Seeder
             return;
         }
 
-        for ($i = 1; $i <= 50; $i++) {
+        for ($i = 1; $i <= 10; $i++) {
             $lessonName = 'Lesson ' . $i;
             $teacherId = collect($teacherIdNumbers)->random();
             $classId = collect($classIds)->random();

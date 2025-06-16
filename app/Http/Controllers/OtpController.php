@@ -17,14 +17,16 @@ class otpController extends Controller
         $emailTo = $request->input('email');
         $name = $request->input('name', 'User');
         $otp = rand(100000, 999999);
+        
 
-        $apiKey = env('SENDGRID_API_KEY');
-        if (!$apiKey) {
-            return response()->json(['error' => 'SendGrid API key not set']);
-        }
+        $apiKey = config('services.sendgrid.api_key');
+
+        // if (!$apiKey) {
+        //     return response()->json(['error' => 'SendGrid API key not set']);
+        // }
         Cache::put("otp_{$emailTo}", $otp, now()->addMinutes(5));
 
-        $sendgrid = new \SendGrid(env('SENDGRID_API_KEY'));
+        $sendgrid = new \SendGrid($apiKey);
 
         $emailMessage = new \SendGrid\Mail\Mail();
         $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS Admin");

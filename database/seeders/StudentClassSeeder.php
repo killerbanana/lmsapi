@@ -15,7 +15,7 @@ class StudentClassSeeder extends Seeder
     {
         $faker = Faker::create();
         $classIds = DB::table('classes')->pluck('class_id')->toArray();
-        $total = 100;
+        $total = 10;
 
         // Fetch random user photos
         $response = Http::get('https://randomuser.me/api/', [

@@ -19,7 +19,7 @@ class ClassSeeder extends Seeder
             return;
         }
 
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= 3; $i++) {
             $classId = strtoupper(Str::random(6));
 
             // Insert class
