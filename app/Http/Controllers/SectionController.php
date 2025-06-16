@@ -89,24 +89,27 @@ class SectionController extends Controller
         ]);
     }
 
-   public function getDueQuizzesWithoutSubmission()
+    public function getDueQuizzesWithoutSubmission()
     {
         $now = Carbon::now();
 
-        // Step 1: Get all due quizzes with their section and lesson
+        // Get all due quizzes with section and lesson
         $dueQuizzes = QuizAssessment::with('section.lesson')
             ->where('due', '<=', $now)
             ->get();
 
         $result = $dueQuizzes->map(function ($quiz) {
-            $lessonId = $quiz->section->lesson_id ?? null;
+            $lesson = $quiz->section->lesson ?? null;
+            $lessonId = $lesson->id ?? null;
 
             if (!$lessonId) return null;
 
-            // Step 2: Get all students enrolled in the lesson
+            // Get all students enrolled in this lesson with class name
             $students = DB::table('lesson_student as ls')
                 ->join('users as u', 'ls.idnumber', '=', 'u.idnumber')
                 ->join('students as s', 's.idnumber', '=', 'u.idnumber')
+                ->leftJoin('class_students as cs', 'cs.idnumber', '=', 's.idnumber')
+                ->leftJoin('classes as c', 'c.class_id', '=', 'cs.class_id')
                 ->where('ls.lesson_id', $lessonId)
                 ->where('u.usertype', 'Student')
                 ->select(
@@ -114,26 +117,33 @@ class SectionController extends Controller
                     's.firstname',
                     's.lastname',
                     's.phone',
-                    's.email'
+                    's.email',
+                    'c.class_name'
                 )
                 ->get();
 
-            // Step 3: Filter students who have not submitted
-            $studentsPending = $students->filter(function ($student) use ($quiz) {
-                $record = DB::table('quiz_assessment_student')
-                    ->where('quiz_assessment_id', $quiz->id)
-                    ->where('student_idnumber', $student->idnumber)
-                    ->first();
+            // Filter students who have not yet submitted the quiz
+            $studentsPending = $students
+                ->filter(function ($student) use ($quiz) {
+                    $record = DB::table('quiz_assessment_student')
+                        ->where('quiz_assessment_id', $quiz->id)
+                        ->where('student_idnumber', $student->idnumber)
+                        ->first();
 
-                return !$record || is_null($record->submitted_at);
-            });
+                    return !$record || is_null($record->submitted_at);
+                })
+                ->unique('idnumber') // ✅ remove duplicate students
+                ->values();
 
             if ($studentsPending->isEmpty()) return null;
+
+            $className = $studentsPending->first()->class_name ?? 'Unknown Class';
 
             return [
                 'quiz_id' => $quiz->id,
                 'title' => $quiz->title,
                 'due' => $quiz->due,
+                'class' => $className,
                 'students_pending_submission' => $studentsPending->map(function ($student) {
                     return [
                         'idnumber' => $student->idnumber,
@@ -150,6 +160,7 @@ class SectionController extends Controller
             'quizzes_due_with_pending_students' => $result
         ]);
     }
+
 
 
 
