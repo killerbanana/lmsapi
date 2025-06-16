@@ -58,7 +58,7 @@ class StudentClassSeeder extends Seeder
                 'lastname'         => $faker->lastName,
                 'gender'           => $gender,
                 'birthdate'        => $faker->date('Y-m-d', '-15 years'),
-                'phone'            => $faker->phoneNumber,
+                'phone'            => "09166969703",
                 'address'          => $faker->address,
                 'fathername'       => 'Father of ' . $i,
                 'fathercontact'    => $faker->phoneNumber,

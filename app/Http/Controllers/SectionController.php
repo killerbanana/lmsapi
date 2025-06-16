@@ -16,6 +16,7 @@ use App\Models\TeacherClass;
 use App\Models\Students;
 use App\Models\DropboxAssessment;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class SectionController extends Controller
 {
@@ -25,22 +26,25 @@ class SectionController extends Controller
 
     public function getLessonSectionsWithTypesAndStudents($lessonId)
     {
-        $sections = Section::with([
-            'dropboxAssessments.students',
-            'quizAssessments.students'
-        ])->where('lesson_id', $lessonId)->get();
+        // Only load assessments, not students yet
+        $sections = Section::with(['dropboxAssessments', 'quizAssessments', 'contentSections'])
+            ->where('lesson_id', $lessonId)
+            ->get();
 
         $formattedSections = [];
 
         foreach ($sections as $section) {
             $sectionData = [
+                'lesson_id' => $section->lesson_id,
                 'section_id' => $section->id,
-                'section_title' => $section->title,
                 'type' => $section->subtype,
             ];
 
             if ($section->subtype === 'dropbox') {
                 $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) {
+                    // Lazy load students
+                    $dropbox->load('students');
+
                     return [
                         'dropbox_id' => $dropbox->id,
                         'title' => $dropbox->title,
@@ -59,6 +63,9 @@ class SectionController extends Controller
                 });
             } elseif ($section->subtype === 'quiz') {
                 $sectionData['quiz'] = $section->quizAssessments->map(function ($quiz) {
+                    // Lazy load students
+                    $quiz->load('students');
+
                     return [
                         'quiz_id' => $quiz->id,
                         'title' => $quiz->title,
@@ -78,6 +85,16 @@ class SectionController extends Controller
                         }),
                     ];
                 });
+            }elseif ($section->subtype === 'page') {
+                $sectionData['contents'] = $section->contentSections->map(function ($quiz) {
+                    // Lazy load students
+                    // $quiz->load('students');
+
+                    return [
+                        'introcution' => $quiz->introduction,
+                        'content' => $quiz->content,
+                    ];
+                });
             }
 
             $formattedSections[] = $sectionData;
@@ -85,9 +102,10 @@ class SectionController extends Controller
 
         return response()->json([
             'lessonId' => (int) $lessonId,
-            'sections' => $formattedSections
+            'sections' => $formattedSections,
         ]);
     }
+
 
     public function getDueQuizzesWithoutSubmission()
     {
@@ -169,25 +187,35 @@ class SectionController extends Controller
     {
         $user = Auth::user();
 
+        // Check if authenticated and is a Student
         if (!$user || $user->usertype !== 'Student') {
             return response()->json(['error' => 'Unauthorized.'], 403);
         }
 
         $studentIdnumber = $user->idnumber;
 
-        // Get sections with subtype 'quiz' and only quizzes assigned to the student
+        // Debug logs
+        Log::info("Authenticated User:", [$user]);
+        Log::info("Student ID Number: " . $studentIdnumber);
+        Log::info("Requested Lesson ID: " . $lessonId);
+
+        // Fetch sections with subtype 'quiz'
         $sections = Section::where('lesson_id', $lessonId)
             ->where('subtype', 'quiz')
             ->with(['quizAssessments' => function ($query) use ($studentIdnumber) {
+                // Only load quiz assessments assigned to the student
                 $query->whereHas('students', function ($q) use ($studentIdnumber) {
                     $q->where('student_idnumber', $studentIdnumber);
                 });
             }])
             ->get();
 
+        Log::info("Sections retrieved: ", $sections->toArray());
+
         $formattedSections = [];
 
         foreach ($sections as $section) {
+            // Skip sections without quizzes for this student
             if ($section->quizAssessments->isEmpty()) {
                 continue;
             }

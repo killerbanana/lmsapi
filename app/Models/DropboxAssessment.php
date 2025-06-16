@@ -38,4 +38,5 @@ class DropboxAssessment extends Model
                     ->withPivot(['score', 'submitted_at', 'attempts'])
                     ->withTimestamps();
     }
+
 }
