@@ -44,7 +44,17 @@ class SectionController extends Controller
                     return [
                         'dropbox_id' => $dropbox->id,
                         'title' => $dropbox->title,
-                        'students' => $dropbox->students->pluck('idnumber'),
+                        'students' => $dropbox->students->map(function ($student) {
+                            return [
+                                'idnumber' => $student->idnumber,
+                                'firstname' => $student->firstname,
+                                'lastname' => $student->lastname,
+                                'email' => $student->email,
+                                'status' => $student->status,
+                                'score' => $student->pivot->score ?? null,
+                                'submitted_at' => $student->pivot->submitted_at ?? null,
+                            ];
+                        }),
                     ];
                 });
             } elseif ($section->subtype === 'quiz') {
@@ -53,7 +63,19 @@ class SectionController extends Controller
                         'quiz_id' => $quiz->id,
                         'title' => $quiz->title,
                         'instructions' => $quiz->instructions,
-                        'students' => $quiz->students->pluck('idnumber'),
+                        'due' => $quiz->due,
+                        'students' => $quiz->students->map(function ($student) {
+                            return [
+                                'idnumber' => $student->idnumber,
+                                'firstname' => $student->firstname,
+                                'lastname' => $student->lastname,
+                                'email' => $student->email,
+                                'status' => $student->status,
+                                'score' => $student->pivot->score ?? null,
+                                'submitted_at' => $student->pivot->submitted_at ?? null,
+                                'attempt' => $student->pivot->attempt ?? null,
+                            ];
+                        }),
                     ];
                 });
             }
@@ -66,6 +88,71 @@ class SectionController extends Controller
             'sections' => $formattedSections
         ]);
     }
+
+   public function getDueQuizzesWithoutSubmission()
+    {
+        $now = Carbon::now();
+
+        // Step 1: Get all due quizzes with their section and lesson
+        $dueQuizzes = QuizAssessment::with('section.lesson')
+            ->where('due', '<=', $now)
+            ->get();
+
+        $result = $dueQuizzes->map(function ($quiz) {
+            $lessonId = $quiz->section->lesson_id ?? null;
+
+            if (!$lessonId) return null;
+
+            // Step 2: Get all students enrolled in the lesson
+            $students = DB::table('lesson_student as ls')
+                ->join('users as u', 'ls.idnumber', '=', 'u.idnumber')
+                ->join('students as s', 's.idnumber', '=', 'u.idnumber')
+                ->where('ls.lesson_id', $lessonId)
+                ->where('u.usertype', 'Student')
+                ->select(
+                    'u.idnumber',
+                    's.firstname',
+                    's.lastname',
+                    's.phone',
+                    's.email'
+                )
+                ->get();
+
+            // Step 3: Filter students who have not submitted
+            $studentsPending = $students->filter(function ($student) use ($quiz) {
+                $record = DB::table('quiz_assessment_student')
+                    ->where('quiz_assessment_id', $quiz->id)
+                    ->where('student_idnumber', $student->idnumber)
+                    ->first();
+
+                return !$record || is_null($record->submitted_at);
+            });
+
+            if ($studentsPending->isEmpty()) return null;
+
+            return [
+                'quiz_id' => $quiz->id,
+                'title' => $quiz->title,
+                'due' => $quiz->due,
+                'students_pending_submission' => $studentsPending->map(function ($student) {
+                    return [
+                        'idnumber' => $student->idnumber,
+                        'firstname' => $student->firstname,
+                        'lastname' => $student->lastname,
+                        'phone' => $student->phone,
+                        'email' => $student->email,
+                    ];
+                })->values(),
+            ];
+        })->filter()->values();
+
+        return response()->json([
+            'quizzes_due_with_pending_students' => $result
+        ]);
+    }
+
+
+
 
     public function getSectionStudent($lessonId)
     {
