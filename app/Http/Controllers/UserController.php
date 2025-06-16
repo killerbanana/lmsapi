@@ -564,7 +564,44 @@ class UserController extends Controller
     }
 
 
+    public function forgotPassword(Request $request, $idnumber)
+        {
+            $validator = Validator::make($request->all(), [
+                'new_password' => 'required|string|min:6|confirmed',
+                'email' => 'required|email',
+                'otp' => 'required|string',
+            ]);
 
+            if ($validator->fails()) {
+                return response()->json($validator->errors(), 422);
+            }
+
+            $user = User::where('idnumber', $idnumber)->first();
+
+            if (!$user) {
+                return response()->json(['message' => 'User not found.'], 404);
+            }
+
+            // Check email matches user
+            if ($request->email !== $user->email) {
+                return response()->json(['message' => 'Email does not match user.'], 400);
+            }
+
+            // Verify OTP
+            $cachedOtp = Cache::get("otp_{$request->email}");
+            if (!$cachedOtp || $cachedOtp != $request->otp) {
+                return response()->json(['message' => 'Invalid or expired OTP.'], 401);
+            }
+
+            // Update password
+            $user->password = bcrypt($request->new_password);
+            $user->save();
+
+            // Remove used OTP
+            Cache::forget("otp_{$request->email}");
+
+            return response()->json(['message' => 'Password changed successfully.']);
+        }
 
     public function changePassword(Request $request, $idnumber)
     {

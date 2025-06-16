@@ -14,9 +14,9 @@ class UserTeacherStudentSeeder extends Seeder
     public function run(): void
     {
         $faker = Faker::create();
-        $total = 10;
+        $total = 2;
 
-        // Fetch 50 random user photos
+        // Fetch random user photos
         $response = Http::get('https://randomuser.me/api/', [
             'results' => $total,
             'inc' => 'picture',
@@ -34,9 +34,12 @@ class UserTeacherStudentSeeder extends Seeder
         for ($i = 1; $i <= $total; $i++) {
             $idnumber = sprintf('TCH%03d', $i);
             $username = "teacher{$i}";
-            $email = "{$username}@example.com";
+            $email = ($i === 1) ? 'jaysonviernes@gmail.com' : "{$username}@example.com";
             $gender = $faker->randomElement(['male', 'female']);
             $photo = $photos[array_rand($photos)];
+
+            $firstname = ($i === 1) ? 'Jayson' : $faker->firstName($gender);
+            $lastname = ($i === 1) ? 'Vierness' : $faker->lastName;
 
             // Insert user
             DB::table('users')->insert([
@@ -54,8 +57,8 @@ class UserTeacherStudentSeeder extends Seeder
             // Insert teacher profile
             DB::table('teachers')->insert([
                 'idnumber'   => $idnumber,
-                'firstname'  => $faker->firstName($gender),
-                'lastname'   => $faker->lastName,
+                'firstname'  => $firstname,
+                'lastname'   => $lastname,
                 'email'      => $email,
                 'birthdate'  => $faker->date('Y-m-d', '-25 years'),
                 'phone'      => $faker->phoneNumber,
@@ -70,4 +73,5 @@ class UserTeacherStudentSeeder extends Seeder
 
         $this->command->info("Seeded {$total} teachers (with random photos) successfully.");
     }
+
 }
