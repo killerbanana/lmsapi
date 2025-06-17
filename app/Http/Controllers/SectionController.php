@@ -26,8 +26,7 @@ class SectionController extends Controller
 
     public function getLessonSectionsWithTypesAndStudents($lessonId)
     {
-        // Only load assessments, not students yet
-        $sections = Section::with(['dropboxAssessments', 'quizAssessments', 'contentSections'])
+        $sections = Section::with(['dropboxAssessments', 'quizAssessments', 'contentSections', 'resources'])
             ->where('lesson_id', $lessonId)
             ->get();
 
@@ -43,9 +42,7 @@ class SectionController extends Controller
 
             if ($section->subtype === 'dropbox') {
                 $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) {
-                    // Lazy load students
                     $dropbox->load('students');
-
                     return [
                         'dropbox_id' => $dropbox->id,
                         'title' => $dropbox->title,
@@ -64,9 +61,7 @@ class SectionController extends Controller
                 });
             } elseif ($section->subtype === 'quiz') {
                 $sectionData['quiz'] = $section->quizAssessments->map(function ($quiz) {
-                    // Lazy load students
                     $quiz->load('students');
-
                     return [
                         'quiz_id' => $quiz->id,
                         'title' => $quiz->title,
@@ -86,18 +81,26 @@ class SectionController extends Controller
                         }),
                     ];
                 });
-            }elseif ($section->subtype === 'page') {
-                $sectionData['contents'] = $section->contentSections->map(function ($quiz) {
-                    // Lazy load students
-                    // $quiz->load('students');
-
+            } elseif ($section->subtype === 'page' || $section->subtype === 'file') {
+                $sectionData['contents'] = $section->contentSections->map(function ($content) {
                     return [
                         'title' => '',
-                        'introduction' => $quiz->introduction,
-                        'content' => $quiz->content,
+                        'introduction' => $content->introduction,
+                        'content' => $content->content,
                     ];
                 });
             }
+
+            // Add this to all sections (regardless of subtype)
+            $sectionData['resources'] = $section->resources->map(function ($resource) {
+                return [
+                    'id' => $resource->id,
+                    'name' => $resource->name,
+                    'type' => $resource->type,
+                    'url' => $resource->url,
+                    'created_at' => $resource->created_at->toDateTimeString(),
+                ];
+            });
 
             $formattedSections[] = $sectionData;
         }
@@ -107,6 +110,7 @@ class SectionController extends Controller
             'sections' => $formattedSections,
         ]);
     }
+
 
 
     public function getDueQuizzesWithoutSubmission()
