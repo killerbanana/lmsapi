@@ -35,6 +35,7 @@ class SectionController extends Controller
 
         foreach ($sections as $section) {
             $sectionData = [
+                'title' => '',
                 'lesson_id' => $section->lesson_id,
                 'section_id' => $section->id,
                 'type' => $section->subtype,
@@ -91,7 +92,8 @@ class SectionController extends Controller
                     // $quiz->load('students');
 
                     return [
-                        'introcution' => $quiz->introduction,
+                        'title' => '',
+                        'introduction' => $quiz->introduction,
                         'content' => $quiz->content,
                     ];
                 });
