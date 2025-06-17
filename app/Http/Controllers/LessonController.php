@@ -48,14 +48,19 @@ class LessonController extends Controller
             return response()->json(['message' => 'Class does not exist.'], 404);
         }
 
-        // Create the lesson
+        // Step 1: Create the lesson with empty description first
         $lesson = Lesson::create([
             'name' => $validated['name'],
             'class_id' => $validated['class_id'],
             'idnumber' => $user->idnumber,
+            'description' => null, // temporary, to be updated
         ]);
 
-        // Assign all students in the class to this lesson
+        // Step 2: Update description now that we have lesson.id
+        $lesson->description = 'Lesson "' . $lesson->name . '" (ID: ' . $lesson->id . ') is part of class ' . $lesson->class_id . '.';
+        $lesson->save();
+
+        // Step 3: Assign students
         $students = StudentClass::where('class_id', $validated['class_id'])->pluck('idnumber');
         foreach ($students as $studentIdnumber) {
             LessonStudent::create([
@@ -69,6 +74,7 @@ class LessonController extends Controller
             'lesson' => $lesson
         ], 201);
     }
+
 
     public function assignStudentToLessons(Request $request)
     {
