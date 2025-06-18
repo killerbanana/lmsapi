@@ -56,8 +56,9 @@ class QuizAssessment extends Model
 
     public function students()
     {
-        return $this->belongsToMany(Students::class, 'quiz_assessment_student', 'quiz_assessment_id', 'student_idnumber')
-                    ->withPivot('score', 'submitted_at', 'attempts');
+        return $this->belongsToMany(User::class, 'quiz_assessment_student', 'quiz_assessment_id', 'student_idnumber', 'id', 'idnumber')
+            ->withPivot(['score', 'submitted_at', 'attempts', 'answer_text', 'file_path'])
+            ->withTimestamps();
     }
     
 }

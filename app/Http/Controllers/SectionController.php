@@ -24,11 +24,21 @@ class SectionController extends Controller
      * Create a new section for a lesson.
      */
 
-    public function getLessonSectionsWithTypesAndStudents($lessonId)
+     public function getLessonSectionsWithTypesAndStudents1($lessonId)
     {
+        $user = Auth::user();
+
         $sections = Section::with(['dropboxAssessments', 'quizAssessments', 'contentSections', 'resources'])
             ->where('lesson_id', $lessonId)
             ->get();
+
+        // For student: get their section progress
+        $progressData = [];
+        if ($user->role === 'student') {
+            $progressData = SectionProgress::where('idnumber', $user->idnumber)
+                ->get()
+                ->keyBy('section_id');
+        }
 
         $formattedSections = [];
 
@@ -39,6 +49,16 @@ class SectionController extends Controller
                 'section_id' => $section->id,
                 'type' => $section->subtype,
             ];
+
+            // Add progress only if student
+            if ($user->role === 'student') {
+                $sectionProgress = $progressData->get($section->id);
+                $sectionData['progress'] = [
+                    'status' => $sectionProgress->status ?? 'not_started',
+                    'started_at' => optional($sectionProgress->started_at)->toDateTimeString(),
+                    'completed_at' => optional($sectionProgress->completed_at)->toDateTimeString(),
+                ];
+            }
 
             if ($section->subtype === 'dropbox') {
                 $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) {
@@ -67,6 +87,7 @@ class SectionController extends Controller
                         'title' => $quiz->title,
                         'instructions' => $quiz->instructions,
                         'due' => $quiz->due,
+                        'max_score' => $quiz->points,
                         'students' => $quiz->students->map(function ($student) {
                             return [
                                 'idnumber' => $student->idnumber,
@@ -81,7 +102,7 @@ class SectionController extends Controller
                         }),
                     ];
                 });
-            } elseif ($section->subtype === 'page' || $section->subtype === 'file') {
+            } elseif (in_array($section->subtype, ['page', 'file'])) {
                 $sectionData['contents'] = $section->contentSections->map(function ($content) {
                     return [
                         'title' => '',
@@ -91,7 +112,6 @@ class SectionController extends Controller
                 });
             }
 
-            // Add this to all sections (regardless of subtype)
             $sectionData['resources'] = $section->resources->map(function ($resource) {
                 return [
                     'id' => $resource->id,
@@ -110,6 +130,153 @@ class SectionController extends Controller
             'sections' => $formattedSections,
         ]);
     }
+
+
+    public function getLessonSectionsWithTypesAndStudents($lessonId)
+    {
+        $user = Auth::user();
+        $isStudent = $user->usertype === 'Student'; // Adjust as needed
+        $studentIdnumber = $isStudent ? $user->idnumber : null;
+
+        $sections = Section::with(['dropboxAssessments', 'quizAssessments', 'contentSections', 'resources'])
+            ->where('lesson_id', $lessonId)
+            ->get();
+
+        $formattedSections = [];
+
+        foreach ($sections as $section) {
+            $sectionData = [
+                'title' => '',
+                'lesson_id' => $section->lesson_id,
+                'section_id' => $section->id,
+                'type' => $section->subtype,
+            ];
+
+            if ($section->subtype === 'dropbox') {
+                $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) use ($isStudent, $studentIdnumber) {
+                    if ($isStudent) {
+                        $student = $dropbox->students()->wherePivot('student_idnumber', $studentIdnumber)->first();
+
+                        return [
+                            'dropbox_id' => $dropbox->id,
+                            'title' => $dropbox->title,
+                            'students' => $student ? [[
+                                'idnumber' => $student->idnumber,
+                                'firstname' => $student->firstname,
+                                'lastname' => $student->lastname,
+                                'email' => $student->email,
+                                'status' => $student->status,
+                                'score' => $student->pivot->score ?? null,
+                                'submitted_at' => $student->pivot->submitted_at ?? null,
+                                'is_submitted' => !is_null($student->pivot->submitted_at),
+                            ]] : null,
+                        ];
+                    } else {
+                        $dropbox->load('students');
+                        return [
+                            'dropbox_id' => $dropbox->id,
+                            'title' => $dropbox->title,
+                            'students' => $dropbox->students->map(function ($student) {
+                                return [
+                                    'idnumber' => $student->idnumber,
+                                    'firstname' => $student->firstname,
+                                    'lastname' => $student->lastname,
+                                    'email' => $student->email,
+                                    'status' => $student->status,
+                                    'score' => $student->pivot->score ?? null,
+                                    'submitted_at' => $student->pivot->submitted_at ?? null,
+                                    'is_submitted' => !is_null($student->pivot->submitted_at),
+                                ];
+                            }),
+                        ];
+                    }
+                });
+            } elseif ($section->subtype === 'quiz') {
+                $sectionData['quiz'] = $section->quizAssessments->map(function ($quiz) use ($isStudent, $studentIdnumber) {
+                    if ($isStudent) {
+                        $student = $quiz->students()->wherePivot('student_idnumber', $studentIdnumber)->first();
+
+                        return [
+                            'quiz_id' => $quiz->id,
+                            'title' => $quiz->title,
+                            'instructions' => $quiz->instructions,
+                            'due' => $quiz->due,
+                            'max_score' => $quiz->points,
+                            'max_attempts' => $quiz->max_attempts,
+                            'students' => $student ? [[
+                                'idnumber' => $student->idnumber,
+                                'firstname' => $student->firstname,
+                                'lastname' => $student->lastname,
+                                'email' => $student->email,
+                                'status' => $student->status,
+                                'score' => $student->pivot->score ?? null,
+                                'submitted_at' => $student->pivot->submitted_at ?? null,
+                                'attempt' => $student->pivot->attempts ?? 0,
+                                'is_submitted' => !is_null($student->pivot->submitted_at),
+                                'is_max_attempt' => $quiz->max_attempts
+                                    ? $student->pivot->attempts >= $quiz->max_attempts
+                                    : false,
+                            ]] : null,
+                        ];
+                    } else {
+                        $quiz->load('students');
+
+                        return [
+                            'quiz_id' => $quiz->id,
+                            'title' => $quiz->title,
+                            'instructions' => $quiz->instructions,
+                            'due' => $quiz->due,
+                            'max_score' => $quiz->points,
+                            'max_attempts' => $quiz->max_attempts,
+                            'students' => $quiz->students->map(function ($student) use ($quiz) {
+                                return [
+                                    'idnumber' => $student->idnumber,
+                                    'firstname' => $student->firstname,
+                                    'lastname' => $student->lastname,
+                                    'email' => $student->email,
+                                    'status' => $student->status,
+                                    'score' => $student->pivot->score ?? null,
+                                    'submitted_at' => $student->pivot->submitted_at ?? null,
+                                    'attempt' => $student->pivot->attempts ?? 0,
+                                    'is_submitted' => !is_null($student->pivot->submitted_at),
+                                    'is_max_attempt' => $quiz->max_attempts
+                                        ? $student->pivot->attempts >= $quiz->max_attempts
+                                        : false,
+                                ];
+                            }),
+                        ];
+                    }
+                });
+            } elseif ($section->subtype === 'page' || $section->subtype === 'file') {
+                $sectionData['contents'] = $section->contentSections->map(function ($content) {
+                    return [
+                        'title' => '',
+                        'introduction' => $content->introduction,
+                        'content' => $content->content,
+                    ];
+                });
+            }
+
+            $sectionData['resources'] = $section->resources->map(function ($resource) {
+                return [
+                    'id' => $resource->id,
+                    'name' => $resource->name,
+                    'type' => $resource->type,
+                    'url' => $resource->url,
+                    'created_at' => $resource->created_at->toDateTimeString(),
+                ];
+            });
+
+            $formattedSections[] = $sectionData;
+        }
+
+        return response()->json([
+            'lessonId' => (int) $lessonId,
+            'sections' => $formattedSections,
+        ]);
+    }
+
+
 
 
 
