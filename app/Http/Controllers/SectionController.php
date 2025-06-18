@@ -132,11 +132,23 @@ class SectionController extends Controller
     }
 
 
-    public function getLessonSectionsWithTypesAndStudents($lessonId)
+   public function getLessonSectionsWithTypesAndStudents($lessonId)
     {
         $user = Auth::user();
-        $isStudent = $user->usertype === 'Student'; // Adjust as needed
-        $studentIdnumber = $isStudent ? $user->idnumber : null;
+        $usertype = $user->usertype;
+
+        // Determine the student ID number:
+        $studentIdnumber = null;
+        if ($usertype === 'Student') {
+            $studentIdnumber = $user->idnumber;
+        } elseif ($usertype === 'Parent') {
+            $linkedStudent = DB::table('parent_tbl')->where('idnumber', $user->idnumber)->value('linked_id');
+            if ($linkedStudent) {
+                $studentIdnumber = $linkedStudent;
+            }
+        }
+
+        $isStudentOrParent = !is_null($studentIdnumber);
 
         $sections = Section::with(['dropboxAssessments', 'quizAssessments', 'contentSections', 'resources'])
             ->where('lesson_id', $lessonId)
@@ -153,8 +165,8 @@ class SectionController extends Controller
             ];
 
             if ($section->subtype === 'dropbox') {
-                $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) use ($isStudent, $studentIdnumber) {
-                    if ($isStudent) {
+                $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) use ($isStudentOrParent, $studentIdnumber) {
+                    if ($isStudentOrParent) {
                         $student = $dropbox->students()->wherePivot('student_idnumber', $studentIdnumber)->first();
 
                         return [
@@ -192,8 +204,8 @@ class SectionController extends Controller
                     }
                 });
             } elseif ($section->subtype === 'quiz') {
-                $sectionData['quiz'] = $section->quizAssessments->map(function ($quiz) use ($isStudent, $studentIdnumber) {
-                    if ($isStudent) {
+                $sectionData['quiz'] = $section->quizAssessments->map(function ($quiz) use ($isStudentOrParent, $studentIdnumber) {
+                    if ($isStudentOrParent) {
                         $student = $quiz->students()->wherePivot('student_idnumber', $studentIdnumber)->first();
 
                         return [
@@ -247,7 +259,7 @@ class SectionController extends Controller
                         ];
                     }
                 });
-            } elseif ($section->subtype === 'page' || $section->subtype === 'file') {
+            } elseif (in_array($section->subtype, ['page', 'file'])) {
                 $sectionData['contents'] = $section->contentSections->map(function ($content) {
                     return [
                         'title' => '',
@@ -275,6 +287,7 @@ class SectionController extends Controller
             'sections' => $formattedSections,
         ]);
     }
+
 
 
     public function getDueQuizzesWithoutSubmission()
