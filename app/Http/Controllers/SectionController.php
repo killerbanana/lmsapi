@@ -277,14 +277,10 @@ class SectionController extends Controller
     }
 
 
-
-
-
     public function getDueQuizzesWithoutSubmission()
     {
         $now = Carbon::now();
 
-        // Get all due quizzes with section and lesson
         $dueQuizzes = QuizAssessment::with('section.lesson')
             ->where('due', '<=', $now)
             ->get();
@@ -295,14 +291,13 @@ class SectionController extends Controller
 
             if (!$lessonId) return null;
 
-            // Get all students enrolled in this lesson with class name
-            $students = DB::table('lesson_student as ls')
-                ->join('users as u', 'ls.idnumber', '=', 'u.idnumber')
+            $studentsPending = DB::table('quiz_assessment_student as qas')
+                ->join('users as u', 'qas.student_idnumber', '=', 'u.idnumber')
                 ->join('students as s', 's.idnumber', '=', 'u.idnumber')
                 ->leftJoin('class_students as cs', 'cs.idnumber', '=', 's.idnumber')
                 ->leftJoin('classes as c', 'c.class_id', '=', 'cs.class_id')
-                ->where('ls.lesson_id', $lessonId)
-                ->where('u.usertype', 'Student')
+                ->where('qas.quiz_assessment_id', $quiz->id)
+                ->where('qas.attempts', '=', 0) // ✅ Only get students with 0 attempts
                 ->select(
                     'u.idnumber',
                     's.firstname',
@@ -311,19 +306,8 @@ class SectionController extends Controller
                     's.email',
                     'c.class_name'
                 )
-                ->get();
-
-            // Filter students who have not yet submitted the quiz
-            $studentsPending = $students
-                ->filter(function ($student) use ($quiz) {
-                    $record = DB::table('quiz_assessment_student')
-                        ->where('quiz_assessment_id', $quiz->id)
-                        ->where('student_idnumber', $student->idnumber)
-                        ->first();
-
-                    return !$record || is_null($record->submitted_at);
-                })
-                ->unique('idnumber') // ✅ remove duplicate students
+                ->get()
+                ->unique('idnumber')
                 ->values();
 
             if ($studentsPending->isEmpty()) return null;
@@ -351,9 +335,6 @@ class SectionController extends Controller
             'quizzes_due_with_pending_students' => $result
         ]);
     }
-
-
-
 
 
     public function getSectionStudent($lessonId)
