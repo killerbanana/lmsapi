@@ -13,6 +13,7 @@ use App\Http\Controllers\TeachersController;
 use App\Http\Controllers\LessonStudentController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\ParentsController;
+use App\Http\Controllers\AttendanceController;
 use Illuminate\Support\Facades\Auth;
 
 
@@ -170,5 +171,54 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy'])->middleware('check.ability:delete-announcement');
 
     Route::put('/announcements/{id}', [AnnouncementController::class, 'update'])->middleware('check.ability:update-announcement');
+});
+
+
+Route::prefix('attendance')->middleware('auth:sanctum')->group(function () {
     
+    /**
+     * FOR TEACHERS/ADMINS:
+     * Get the attendance sheet for a specific class on a given date.
+     * Expects 'class_id' and 'date' as query parameters.
+     * Ex: GET /api/attendance?class_id=MATH101&date=2024-10-26
+     */
+    Route::get('/', [AttendanceController::class, 'index'])
+         ->middleware('check.ability:view-attendance');
+
+    /**
+     * FOR STUDENTS:
+     * Get all attendance records for the currently authenticated student.
+     * This dedicated route is more secure and specific.
+     */
+    Route::get('/student/me', [AttendanceController::class, 'getStudentAttendance'])
+         ->middleware('check.ability:view-own-attendance');
+
+    /**
+     * FOR TEACHERS/ADMINS:
+     * Save or update attendance records for an entire class in bulk.
+     * This is more efficient than saving one student at a time.
+     */
+    Route::post('/class', [AttendanceController::class, 'storeClassAttendance'])
+         ->middleware('check.ability:create-attendance');
+
+    /**
+     * FOR TEACHERS/ADMINS:
+     * Get a single, specific attendance record by its ID using route model binding.
+     */
+    Route::get('/{attendance}', [AttendanceController::class, 'show'])
+         ->middleware('check.ability:view-attendance');
+
+    /**
+     * FOR TEACHERS/ADMINS:
+     * Update a single, specific attendance record by its ID using route model binding.
+     */
+    Route::put('/{attendance}', [AttendanceController::class, 'update'])
+         ->middleware('check.ability:update-attendance');
+
+    /**
+     * FOR TEACHERS/ADMINS:
+     * Delete a single, specific attendance record by its ID using route model binding.
+     */
+    Route::delete('/{attendance}', [AttendanceController::class, 'destroy'])
+         ->middleware('check.ability:delete-attendance');
 });
