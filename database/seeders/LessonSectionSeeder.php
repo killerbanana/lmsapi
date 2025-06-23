@@ -35,7 +35,7 @@ class LessonSectionSeeder extends Seeder
                     DB::table('content_sections')->insert([
                         'section_id' => $sectionId,
                         'introduction' => 'This is the introduction to content section ' . $i,
-                        'content' => '<p>This is sample content for lesson ID ' . $lesson->id . '</p>',
+                        'content' => 'This is sample content for lesson ID ' . $lesson->id . '',
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
@@ -46,6 +46,7 @@ class LessonSectionSeeder extends Seeder
                         'title' => 'Quiz ' . Str::random(5),
                         'instructions' => 'Answer all questions.',
                         'points' => rand(10, 100),
+                        'max_score' => rand(10, 100),
                         'category' => 'General',
                         'start' => Carbon::now()->subDays(rand(0, 3)),
                         'due' => Carbon::now()->addDays(rand(2, 10)),

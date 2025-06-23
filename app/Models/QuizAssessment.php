@@ -15,6 +15,7 @@ class QuizAssessment extends Model
         'title',
         'instructions',
         'points',
+        'max_score',
         'category',
         'start',
         'due',
