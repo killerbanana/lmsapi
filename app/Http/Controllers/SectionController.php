@@ -87,7 +87,7 @@ class SectionController extends Controller
                         'title' => $quiz->title,
                         'instructions' => $quiz->instructions,
                         'due' => $quiz->due,
-                        'max_score' => $quiz->points,
+                        'max_score' => $quiz->max_score,
                         'students' => $quiz->students->map(function ($student) {
                             return [
                                 'idnumber' => $student->idnumber,
@@ -580,6 +580,7 @@ class SectionController extends Controller
                 'points' => $validated['points'],
                 'category' => $validated['category'],
                 'start' => now(),
+                'max_score' => $validated['max_score'] ?? 100,
                 'due' => now()->addDays(7),
                 'grading_scale' => $validated['grading_scale'] ?? 'Default',
                 'grading' => $validated['grading'] ?? 'Normal',
