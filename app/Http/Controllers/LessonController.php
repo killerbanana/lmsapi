@@ -23,6 +23,7 @@ class LessonController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'class_id' => 'required|string|max:255',
+            'description' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -53,11 +54,9 @@ class LessonController extends Controller
             'name' => $validated['name'],
             'class_id' => $validated['class_id'],
             'idnumber' => $user->idnumber,
-            'description' => null, // temporary, to be updated
+            'description' => $validated['description'],
         ]);
 
-        // Step 2: Update description now that we have lesson.id
-        $lesson->description = 'Lesson "' . $lesson->name . '" (ID: ' . $lesson->id . ') is part of class ' . $lesson->class_id . '.';
         $lesson->save();
 
         // Step 3: Assign students
