@@ -23,6 +23,8 @@ class AttendanceController extends Controller
     {
         // --- Validation ---
         // Validate that class_id and a valid date are provided.
+        // --- Validation ---
+        // Validate that class_id and a valid date are provided.
         $validator = Validator::make($request->all(), [
             'class_id' => 'required|string|exists:classes,class_id',
             'date' => 'required|date_format:Y-m-d',
@@ -36,12 +38,16 @@ class AttendanceController extends Controller
         $date = $request->input('date');
 
         // --- Data Retrieval ---
-        // Get all students enrolled in the specified class.
-        // Eager load the user details and their attendance ONLY for the specified date.
+        // Eager load the user with their student profile, and the specific day's attendance.
         $students = StudentClass::where('class_id', $classId)
-            ->with(['user:id,idnumber,username', 'attendances' => function ($query) use ($date) {
-                $query->where('attendance_date', $date);
-            }])
+            ->with([
+                // Use dot notation to load the nested student relationship
+                'user.student:idnumber,firstname,lastname', 
+                'user:id,idnumber,username', // Continue loading user details
+                'attendances' => function ($query) use ($date) {
+                    $query->where('attendance_date', $date);
+                }
+            ])
             ->get();
 
         // --- Response Formatting ---
@@ -51,6 +57,12 @@ class AttendanceController extends Controller
             return [
                 'class_student_id' => $enrollment->id,
                 'idnumber' => $enrollment->user->idnumber,
+                // --- ADDED LINES ---
+                // Access the nested student relationship data.
+                // Use the null safe operator (?->) in case a user doesn't have a student profile.
+                'firstname' => $enrollment->user->student?->firstname,
+                'lastname' => $enrollment->user->student?->lastname,
+                // --- END ADDED LINES ---
                 'username' => $enrollment->user->username,
                 'status' => $attendanceRecord->status ?? null, // Status if attendance was taken, otherwise null
                 'remarks' => $attendanceRecord->remarks ?? null,
