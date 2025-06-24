@@ -23,6 +23,8 @@ Route::get('/', function () {
 });
 
 Route::post('/send-otp', [OtpController::class, 'sendOtp']);
+Route::post('/send-email-otp', [OtpController::class, 'sendOtpEmail']);
+
 Route::post('/verify-otp', [OtpController::class, 'verifyOtp']);
 Route::put('/user/{idnumber}/forgot-password', [UserController::class, 'forgotPassword']);
 // Public Auth Route
