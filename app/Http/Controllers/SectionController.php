@@ -135,158 +135,117 @@ class SectionController extends Controller
    public function getLessonSectionsWithTypesAndStudents($lessonId)
     {
         $user = Auth::user();
-        $usertype = $user->usertype;
-
-        // Determine the student ID number:
         $studentIdnumber = null;
-        if ($usertype === 'Student') {
+
+        if ($user->usertype === 'Student') {
             $studentIdnumber = $user->idnumber;
-        } elseif ($usertype === 'Parent') {
-            $linkedStudent = DB::table('parent_tbl')->where('idnumber', $user->idnumber)->value('linked_id');
-            if ($linkedStudent) {
-                $studentIdnumber = $linkedStudent;
-            }
+        } elseif ($user->usertype === 'Parent') {
+            $studentIdnumber = DB::table('parent_tbl')->where('idnumber', $user->idnumber)->value('linked_id');
         }
 
         $isStudentOrParent = !is_null($studentIdnumber);
 
-        $sections = Section::with(['dropboxAssessments', 'quizAssessments', 'contentSections', 'resources'])
-            ->where('lesson_id', $lessonId)
-            ->get();
+        // Eager load all necessary relationships
+        $sections = Section::with([
+            'dropboxAssessments.students',
+            'quizAssessments.students',
+            'contentSections',
+            'resources'
+        ])->where('lesson_id', $lessonId)->get();
 
-        $formattedSections = [];
-
-        foreach ($sections as $section) {
+        $formattedSections = $sections->map(function ($section) use ($isStudentOrParent, $studentIdnumber) {
             $sectionData = [
-                'title' => '',
-                'lesson_id' => $section->lesson_id,
+                'lesson_id'  => $section->lesson_id,
                 'section_id' => $section->id,
-                'type' => $section->subtype,
+                'type'       => $section->subtype,
             ];
 
             if ($section->subtype === 'dropbox') {
                 $sectionData['dropbox'] = $section->dropboxAssessments->map(function ($dropbox) use ($isStudentOrParent, $studentIdnumber) {
-                    if ($isStudentOrParent) {
-                        $student = $dropbox->students()->wherePivot('student_idnumber', $studentIdnumber)->first();
+                    // Filter students if the user is a Student or Parent, otherwise use all loaded students
+                    $students = $isStudentOrParent
+                        ? $dropbox->students->where('pivot.student_idnumber', $studentIdnumber)
+                        : $dropbox->students;
 
-                        return [
-                            'dropbox_id' => $dropbox->id,
-                            'title' => $dropbox->title,
-                            'students' => $student ? [[
-                                'idnumber' => $student->idnumber,
-                                'firstname' => $student->firstname,
-                                'lastname' => $student->lastname,
-                                'email' => $student->email,
-                                'status' => $student->status,
-                                'score' => $student->pivot->score ?? null,
-                                'submitted_at' => $student->pivot->submitted_at ?? null,
+                    return [
+                        'dropbox_id' => $dropbox->id,
+                        'title'      => $dropbox->title,
+                        'students'   => $students->map(function ($student) {
+                            return [
+                                'idnumber'     => $student->idnumber,
+                                'firstname'    => $student->firstname,
+                                'lastname'     => $student->lastname,
+                                'email'        => $student->email,
+                                'status'       => $student->status,
+                                'score'        => $student->pivot->score,
+                                'submitted_at' => $student->pivot->submitted_at,
                                 'is_submitted' => !is_null($student->pivot->submitted_at),
-                            ]] : null,
-                        ];
-                    } else {
-                        $dropbox->load('students');
-                        return [
-                            'dropbox_id' => $dropbox->id,
-                            'title' => $dropbox->title,
-                            'students' => $dropbox->students->map(function ($student) {
-                                return [
-                                    'idnumber' => $student->idnumber,
-                                    'firstname' => $student->firstname,
-                                    'lastname' => $student->lastname,
-                                    'email' => $student->email,
-                                    'status' => $student->status,
-                                    'score' => $student->pivot->score ?? null,
-                                    'submitted_at' => $student->pivot->submitted_at ?? null,
-                                    'is_submitted' => !is_null($student->pivot->submitted_at),
-                                ];
-                            }),
-                        ];
-                    }
+                            ];
+                        })->values()->all(), // .values()->all() resets keys to create a clean array
+                    ];
                 });
-            } elseif ($section->subtype === 'quiz') {
+            }
+
+            if ($section->subtype === 'quiz') {
                 $sectionData['quiz'] = $section->quizAssessments->map(function ($quiz) use ($isStudentOrParent, $studentIdnumber) {
-                    if ($isStudentOrParent) {
-                        $student = $quiz->students()->wherePivot('student_idnumber', $studentIdnumber)->first();
+                    $students = $isStudentOrParent
+                        ? $quiz->students->where('pivot.student_idnumber', $studentIdnumber)
+                        : $quiz->students;
 
-                        return [
-                            'quiz_id' => $quiz->id,
-                            'title' => $quiz->title,
-                            'instructions' => $quiz->instructions,
-                            'due' => $quiz->due,
-                            'max_score' => $quiz->points,
-                            'max_attempts' => $quiz->max_attempts,
-                            'students' => $student ? [[
-                                'idnumber' => $student->idnumber,
-                                'firstname' => $student->firstname,
-                                'lastname' => $student->lastname,
-                                'email' => $student->email,
-                                'status' => $student->status,
-                                'score' => $student->pivot->score ?? null,
-                                'submitted_at' => $student->pivot->submitted_at ?? null,
-                                'attempt' => $student->pivot->attempts ?? 0,
-                                'is_submitted' => !is_null($student->pivot->submitted_at),
-                                'is_max_attempt' => $quiz->max_attempts
-                                    ? $student->pivot->attempts >= $quiz->max_attempts
-                                    : false,
-                            ]] : null,
-                        ];
-                    } else {
-                        $quiz->load('students');
-
-                        return [
-                            'quiz_id' => $quiz->id,
-                            'title' => $quiz->title,
-                            'instructions' => $quiz->instructions,
-                            'due' => $quiz->due,
-                            'max_score' => $quiz->points,
-                            'max_attempts' => $quiz->max_attempts,
-                            'students' => $quiz->students->map(function ($student) use ($quiz) {
-                                return [
-                                    'idnumber' => $student->idnumber,
-                                    'firstname' => $student->firstname,
-                                    'lastname' => $student->lastname,
-                                    'email' => $student->email,
-                                    'status' => $student->status,
-                                    'score' => $student->pivot->score ?? null,
-                                    'submitted_at' => $student->pivot->submitted_at ?? null,
-                                    'attempt' => $student->pivot->attempts ?? 0,
-                                    'is_submitted' => !is_null($student->pivot->submitted_at),
-                                    'is_max_attempt' => $quiz->max_attempts
-                                        ? $student->pivot->attempts >= $quiz->max_attempts
-                                        : false,
-                                ];
-                            }),
-                        ];
-                    }
+                    return [
+                        'quiz_id'      => $quiz->id,
+                        'title'        => $quiz->title,
+                        'instructions' => $quiz->instructions,
+                        'due'          => $quiz->due,
+                        'max_score'    => $quiz->max_score, // Consistently using 'points'
+                        'max_attempts' => $quiz->max_attempts,
+                        'students'     => $students->map(function ($student) use ($quiz) {
+                            return [
+                                'idnumber'       => $student->idnumber,
+                                'firstname'      => $student->firstname,
+                                'lastname'       => $student->lastname,
+                                'email'          => $student->email,
+                                'status'         => $student->status,
+                                'score'          => $student->pivot->score,
+                                'submitted_at'   => $student->pivot->submitted_at,
+                                'attempt'        => $student->pivot->attempts,
+                                'is_submitted'   => !is_null($student->pivot->submitted_at),
+                                'is_max_attempt' => $quiz->max_attempts ? ($student->pivot->attempts >= $quiz->max_attempts) : false,
+                            ];
+                        })->values()->all(),
+                    ];
                 });
-            } elseif (in_array($section->subtype, ['page', 'file'])) {
+            }
+
+            if (in_array($section->subtype, ['page', 'file'])) {
                 $sectionData['contents'] = $section->contentSections->map(function ($content) {
                     return [
-                        'title' => '',
+                        'title'        => $content->title,
                         'introduction' => $content->introduction,
-                        'content' => $content->content,
+                        'content'      => $content->content,
                     ];
                 });
             }
 
             $sectionData['resources'] = $section->resources->map(function ($resource) {
                 return [
-                    'id' => $resource->id,
-                    'name' => $resource->name,
-                    'type' => $resource->type,
-                    'url' => $resource->url,
+                    'id'         => $resource->id,
+                    'name'       => $resource->name,
+                    'type'       => $resource->type,
+                    'url'        => $resource->url,
                     'created_at' => $resource->created_at->toDateTimeString(),
                 ];
             });
 
-            $formattedSections[] = $sectionData;
-        }
+            return $sectionData;
+        });
 
         return response()->json([
             'lessonId' => (int) $lessonId,
             'sections' => $formattedSections,
         ]);
     }
+
 
 
 
