@@ -807,10 +807,12 @@ class SectionController extends Controller
     {
         $user = Auth::user();
 
+        // 1. Authorization: Ensure the user is a student
         if (!$user || $user->usertype !== 'Student') {
             return response()->json(['error' => 'Unauthorized.'], 403);
         }
 
+        // 2. Validation: Check the incoming request data
         $request->validate([
             'answer_text' => 'nullable|string',
             'file' => 'nullable|file|max:5120', // Max 5MB
@@ -820,7 +822,7 @@ class SectionController extends Controller
 
         $quiz = QuizAssessment::findOrFail($quizAssessmentId);
 
-        // Ensure the student is linked to this quiz
+        // 3. Link Check: Ensure the student is actually enrolled in this quiz
         $existing = DB::table('quiz_assessment_student')
             ->where('quiz_assessment_id', $quiz->id)
             ->where('student_idnumber', $studentId)
@@ -830,14 +832,14 @@ class SectionController extends Controller
             return response()->json(['error' => 'Not linked to this quiz.'], 403);
         }
 
-        // Check attempt limit
+        // 4. Attempt Limit Check
         if ($existing->attempts >= $quiz->max_attempts) {
             return response()->json([
                 'error' => 'Maximum number of attempts reached.'
             ], 403);
         }
 
-        // Upload file to Firebase if provided
+        // 5. File Upload to Firebase (if provided)
         $fileUrl = $existing->file_path ?? null;
 
         if ($request->hasFile('file')) {
@@ -852,10 +854,11 @@ class SectionController extends Controller
                 ['name' => $firebaseFilePath]
             );
 
+            // Construct the public URL for the file
             $fileUrl = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
         }
 
-        // Update submission
+        // 6. Update Submission in the database
         DB::table('quiz_assessment_student')
             ->where('quiz_assessment_id', $quiz->id)
             ->where('student_idnumber', $studentId)
@@ -867,6 +870,7 @@ class SectionController extends Controller
                 'updated_at' => now(),
             ]);
 
+        // 7. Update the overall section progress for the student
         $this->updateSectionAndLessonProgress($quiz->section_id, $user->idnumber);
 
         return response()->json(['message' => 'Quiz answer submitted successfully.']);

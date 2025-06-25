@@ -37,24 +37,17 @@ class StudentClass extends Model
      * Get the student (user) that this enrollment belongs to.
      * --- UPDATED: Kept this as the primary relationship to the user ---
      */
-    public function user(): BelongsTo
+    public function user()
     {
-        // This links the 'idnumber' on the 'class_students' table
-        // to the 'idnumber' on the 'users' table.
+        // This links 'class_students.idnumber' to 'users.idnumber'
         return $this->belongsTo(User::class, 'idnumber', 'idnumber');
     }
 
     /**
-     * --- REMOVED: Deleted the duplicate 'student()' method ---
-     * The 'user()' method already provides this relationship. Having both is redundant.
+     * Get the attendance records for the class enrollment.
      */
-
-    /**
-     * Get all attendance records for this specific enrollment.
-     * --- UPDATED: The HasMany type hint will now work because of the import ---
-     */
-    public function attendances(): HasMany
+    public function attendances()
     {
-        return $this->hasMany(Attendance::class, 'class_student_id');
+        return $this->hasMany(Attendance::class, 'class_student_id', 'id');
     }
 }

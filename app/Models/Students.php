@@ -79,4 +79,10 @@ class Students extends Model
         return $this->belongsToMany(QuizAssessment::class, 'quiz_assessment_student', 'idnumber', 'quiz_assessment_id', 'idnumber', 'id');
     }
     
+    public function student()
+    {
+        // This links 'users.idnumber' to 'students.idnumber'
+        // By convention, Eloquent knows the 'Student' model uses the 'students' table.
+        return $this->hasOne(Students::class, 'idnumber', 'idnumber');
+    }
 }

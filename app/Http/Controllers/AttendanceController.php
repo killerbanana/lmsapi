@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class AttendanceController extends Controller
@@ -19,12 +20,10 @@ class AttendanceController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index(Request $request)
+   public function index(Request $request)
     {
-        // --- Validation ---
-        // Validate that class_id and a valid date are provided.
-        // --- Validation ---
-        // Validate that class_id and a valid date are provided.
+        // --- 1. Validation ---
+        // This part remains the same, as it's correct.
         $validator = Validator::make($request->all(), [
             'class_id' => 'required|string|exists:classes,class_id',
             'date' => 'required|date_format:Y-m-d',
@@ -37,42 +36,47 @@ class AttendanceController extends Controller
         $classId = $request->input('class_id');
         $date = $request->input('date');
 
-        // --- Data Retrieval ---
-        // Eager load the user with their student profile, and the specific day's attendance.
-        $students = StudentClass::where('class_id', $classId)
-            ->with([
-                // Use dot notation to load the nested student relationship
-                'user.student:idnumber,firstname,lastname', 
-                'user:id,idnumber,username', // Continue loading user details
-                'attendances' => function ($query) use ($date) {
-                    $query->where('attendance_date', $date);
-                }
-            ])
+        // --- 2. Data Retrieval ---
+        // Refactored to use the DB query builder with joins instead of Eloquent relationships.
+        // This approach is more direct and avoids potential issues with model relationship definitions.
+        $studentsWithAttendance = DB::table('class_students')
+            ->join('users', 'class_students.idnumber', '=', 'users.idnumber')
+            ->join('students', 'users.idnumber', '=', 'students.idnumber')
+            ->leftJoin('attendances', function ($join) use ($date) {
+                // The leftJoin ensures all students are returned, even if they don't have an attendance record for the date.
+                $join->on('class_students.id', '=', 'attendances.class_student_id')
+                     ->where('attendances.attendance_date', '=', $date);
+            })
+            ->where('class_students.class_id', $classId)
+            ->select(
+                'class_students.id as class_student_id',
+                'users.idnumber',
+                // 'users.username', // This was commented out in your original mapping, so I've kept it out of the final select.
+                'students.firstname',
+                'students.lastname',
+                'attendances.status',
+                'attendances.remarks'
+            )
             ->get();
 
-        // --- Response Formatting ---
-        // Format the data for a clean API response.
-        $attendanceData = $students->map(function ($enrollment) {
-            $attendanceRecord = $enrollment->attendances->first();
+        // --- 3. Response Formatting ---
+        // The mapping is now simpler because the data is already in a flat structure from the query.
+        $attendanceData = $studentsWithAttendance->map(function ($student) {
             return [
-                'class_student_id' => $enrollment->id,
-                'idnumber' => $enrollment->user->idnumber,
-                // --- ADDED LINES ---
-                // Access the nested student relationship data.
-                // Use the null safe operator (?->) in case a user doesn't have a student profile.
-                'firstname' => $enrollment->user->student?->firstname,
-                'lastname' => $enrollment->user->student?->lastname,
-                // --- END ADDED LINES ---
-                'username' => $enrollment->user->username,
-                'status' => $attendanceRecord->status ?? null, // Status if attendance was taken, otherwise null
-                'remarks' => $attendanceRecord->remarks ?? null,
+                'class_student_id' => $student->class_student_id,
+                'idnumber' => $student->idnumber,
+                'firstname' => $student->firstname,
+                'lastname' => $student->lastname,
+                'status' => $student->status, // This will be null if no attendance record was found by the leftJoin.
+                'remarks' => $student->remarks, // This will also be null if no record was found.
             ];
         });
 
+        // --- 4. Return JSON Response ---
         return response()->json([
             'class_id' => $classId,
             'attendance_date' => $date,
-            'attendance_sheet' => $attendanceData
+            'attendance_sheet' => $attendanceData, // No need for ->values() here as ->map() on a collection preserves keys, but the final JSON will be an array anyway.
         ], 200);
     }
 
