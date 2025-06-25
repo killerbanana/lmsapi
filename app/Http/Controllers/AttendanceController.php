@@ -20,63 +20,65 @@ class AttendanceController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-   public function index(Request $request)
+    public function index(Request $request)
     {
         // --- 1. Validation ---
-        // This part remains the same, as it's correct.
+        // The 'date' validation is changed from 'required' to 'sometimes'
+        // to allow requests without a specific date.
         $validator = Validator::make($request->all(), [
             'class_id' => 'required|string|exists:classes,class_id',
-            'date' => 'required|date_format:Y-m-d',
+            'date' => 'sometimes|date_format:Y-m-d',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json(['errors' => 'The provided data is not valid', 'details' => $validator->errors()], 422);
         }
         
         $classId = $request->input('class_id');
         $date = $request->input('date');
 
         // --- 2. Data Retrieval ---
-        // Refactored to use the DB query builder with joins instead of Eloquent relationships.
-        // This approach is more direct and avoids potential issues with model relationship definitions.
-        $studentsWithAttendance = DB::table('class_students')
+        // The query is now conditional. If a date is provided, it filters by that date.
+        // If no date is provided, it returns all attendance records for the class.
+        $query = DB::table('class_students')
             ->join('users', 'class_students.idnumber', '=', 'users.idnumber')
             ->join('students', 'users.idnumber', '=', 'students.idnumber')
-            ->leftJoin('attendances', function ($join) use ($date) {
-                // The leftJoin ensures all students are returned, even if they don't have an attendance record for the date.
-                $join->on('class_students.id', '=', 'attendances.class_student_id')
-                     ->where('attendances.attendance_date', '=', $date);
-            })
+            ->join('attendances', 'class_students.id', '=', 'attendances.class_student_id')
             ->where('class_students.class_id', $classId)
             ->select(
                 'class_students.id as class_student_id',
                 'users.idnumber',
-                // 'users.username', // This was commented out in your original mapping, so I've kept it out of the final select.
                 'students.firstname',
                 'students.lastname',
                 'attendances.status',
-                'attendances.remarks'
-            )
-            ->get();
+                'attendances.remarks',
+                'attendances.attendance_date' // Added date to the selection
+            );
+
+        // Use when() to conditionally apply the date filter
+        $studentsWithAttendance = $query->when($date, function ($q, $date) {
+            return $q->where('attendances.attendance_date', $date);
+        })->get();
 
         // --- 3. Response Formatting ---
-        // The mapping is now simpler because the data is already in a flat structure from the query.
+        // The date is now included in each record.
         $attendanceData = $studentsWithAttendance->map(function ($student) {
             return [
                 'class_student_id' => $student->class_student_id,
                 'idnumber' => $student->idnumber,
                 'firstname' => $student->firstname,
                 'lastname' => $student->lastname,
-                'status' => $student->status, // This will be null if no attendance record was found by the leftJoin.
-                'remarks' => $student->remarks, // This will also be null if no record was found.
+                'status' => $student->status,
+                'remarks' => $student->remarks,
+                'attendance_date' => $student->attendance_date,
             ];
         });
 
         // --- 4. Return JSON Response ---
         return response()->json([
             'class_id' => $classId,
-            'attendance_date' => $date,
-            'attendance_sheet' => $attendanceData, // No need for ->values() here as ->map() on a collection preserves keys, but the final JSON will be an array anyway.
+            'attendance_date' => $date, // This will be the requested date, or null if all dates were fetched
+            'attendance_sheet' => $attendanceData,
         ], 200);
     }
 
