@@ -88,36 +88,107 @@ class AttendanceController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getStudentAttendance(Request $request)
-    {
-        $user = Auth::user();
 
-        // 1. Check if the authenticated user is a student
-        if ($user->usertype !== 'Student') {
-            return response()->json(['message' => 'This action is only for students.'], 403);
+     public function getStudentAttendance(Request $request)
+    {
+        // --- 1. Get Authenticated User ---
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
-        // 2. Get all attendance records for that student's enrollments.
-        // This is a more direct way to query through relationships.
-        $attendances = Attendance::whereHas('classStudent', function ($query) use ($user) {
-                $query->where('idnumber', $user->idnumber);
-            })
-            ->with('classStudent.class:class_id,class_name') // Eager load class details
-            ->get();
+        // --- 2. Determine if User is a Parent and Get Student ID ---
+        $studentIdNumber = null;
+        $parent = DB::table('parent_tbl')->where('idnumber', $user->idnumber)->first();
 
-        // 3. Format the response
-        $formattedAttendances = $attendances->map(function($record) {
-            return [
-                'class_id' => $record->classStudent->class->class_id,
-                'class_name' => $record->classStudent->class->class_name,
-                'attendance_date' => $record->attendance_date->format('Y-m-d'),
-                'status' => $record->status,
-                'remarks' => $record->remarks
-            ];
-        });
+        if ($parent && $parent->linked_id) {
+            // User is a parent with a linked child
+            $studentIdNumber = $parent->linked_id;
+        } else {
+            // User is assumed to be a student
+            $studentIdNumber = $user->idnumber;
+        }
+        
+        // --- 3. Validate Student Existence ---
+        $studentDetails = DB::table('students')->where('idnumber', $studentIdNumber)->first();
+        if (!$studentDetails) {
+            return response()->json(['error' => 'No student record found for this user or linked child.'], 404);
+        }
 
-        return response()->json($formattedAttendances, 200);
+        // --- 4. Validation for Optional Filters ---
+        $validator = Validator::make($request->all(), [
+            'class_id' => 'sometimes|string|exists:classes,class_id',
+            'date' => 'sometimes|date_format:Y-m-d',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => 'The provided data is not valid', 'details' => $validator->errors()], 422);
+        }
+
+        // --- 5. Data Retrieval ---
+        $classId = $request->input('class_id');
+        $date = $request->input('date');
+        
+        $query = DB::table('attendances')
+            ->join('class_students', 'attendances.class_student_id', '=', 'class_students.id')
+            ->join('classes', 'class_students.class_id', '=', 'classes.class_id')
+            ->where('class_students.idnumber', $studentIdNumber) // Filter by the determined student's idnumber
+            ->select(
+                'classes.class_id',
+                'classes.class_name',
+                'attendances.attendance_date',
+                'attendances.status',
+                'attendances.remarks'
+            )
+            ->orderBy('attendances.attendance_date', 'desc');
+
+        // Conditionally apply filters
+        $records = $query->when($classId, function ($q) use ($classId) {
+            return $q->where('classes.class_id', $classId);
+        })->when($date, function ($q) use ($date) {
+            return $q->where('attendances.attendance_date', $date);
+        })->get();
+
+        // --- 6. Format and Return JSON Response ---
+        return response()->json([
+            'student' => [
+                'idnumber' => $studentDetails->idnumber,
+                'firstname' => $studentDetails->firstname,
+                'lastname' => $studentDetails->lastname,
+            ],
+            'attendance_records' => $records,
+        ], 200);
     }
+    // public function getStudentAttendance(Request $request)
+    // {
+    //     $user = Auth::user();
+
+    //     // 1. Check if the authenticated user is a student
+    //     if ($user->usertype !== 'Student') {
+    //         return response()->json(['message' => 'This action is only for students.'], 403);
+    //     }
+
+    //     // 2. Get all attendance records for that student's enrollments.
+    //     // This is a more direct way to query through relationships.
+    //     $attendances = Attendance::whereHas('studentClass', function ($query) use ($user) {
+    //             $query->where('idnumber', $user->idnumber);
+    //         })
+    //         ->with('studentClass:class_id') // Eager load class details
+    //         ->get();
+
+    //     // 3. Format the response
+    //     $formattedAttendances = $attendances->map(function($record) {
+    //         return [
+    //             'class_id' => $record,
+    //             // 'class_name' => $record->classStudent->class->class_name,
+    //             'attendance_date' => $record->attendance_date->format('Y-m-d'),
+    //             'status' => $record->status,
+    //             'remarks' => $record->remarks
+    //         ];
+    //     });
+
+    //     return response()->json($formattedAttendances, 200);
+    // }
 
     /**
      * Store or update attendance for an entire class on a specific day.
