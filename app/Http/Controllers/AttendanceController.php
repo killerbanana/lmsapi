@@ -46,6 +46,7 @@ class AttendanceController extends Controller
             ->join('attendances', 'class_students.id', '=', 'attendances.class_student_id')
             ->where('class_students.class_id', $classId)
             ->select(
+                'attendances.id as attendance_id', // Added attendance ID
                 'class_students.id as class_student_id',
                 'users.idnumber',
                 'students.firstname',
@@ -64,6 +65,7 @@ class AttendanceController extends Controller
         // The date is now included in each record.
         $attendanceData = $studentsWithAttendance->map(function ($student) {
             return [
+                'attendance_id' => $student->attendance_id,
                 'class_student_id' => $student->class_student_id,
                 'idnumber' => $student->idnumber,
                 'firstname' => $student->firstname,
@@ -134,6 +136,7 @@ class AttendanceController extends Controller
             ->join('classes', 'class_students.class_id', '=', 'classes.class_id')
             ->where('class_students.idnumber', $studentIdNumber) // Filter by the determined student's idnumber
             ->select(
+                'attendances.id as attendance_id', // Added attendance ID
                 'classes.class_id',
                 'classes.class_name',
                 'attendances.attendance_date',
