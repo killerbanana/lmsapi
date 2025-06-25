@@ -92,17 +92,30 @@ class AttendanceController extends Controller
      public function getStudentAttendance(Request $request)
     {
         // --- 1. Get Authenticated User ---
-        // We use Auth::user() to get the currently authenticated user instance.
         $user = Auth::user();
-
-        // If no user is authenticated, return a 401 Unauthorized error.
         if (!$user) {
             return response()->json(['error' => 'Unauthenticated.'], 401);
         }
-        $idnumber = $user->idnumber;
 
-        // --- 2. Validation for Optional Filters ---
-        // The student can optionally filter their attendance by class_id or a specific date.
+        // --- 2. Determine if User is a Parent and Get Student ID ---
+        $studentIdNumber = null;
+        $parent = DB::table('parent_tbl')->where('idnumber', $user->idnumber)->first();
+
+        if ($parent && $parent->linked_id) {
+            // User is a parent with a linked child
+            $studentIdNumber = $parent->linked_id;
+        } else {
+            // User is assumed to be a student
+            $studentIdNumber = $user->idnumber;
+        }
+        
+        // --- 3. Validate Student Existence ---
+        $studentDetails = DB::table('students')->where('idnumber', $studentIdNumber)->first();
+        if (!$studentDetails) {
+            return response()->json(['error' => 'No student record found for this user or linked child.'], 404);
+        }
+
+        // --- 4. Validation for Optional Filters ---
         $validator = Validator::make($request->all(), [
             'class_id' => 'sometimes|string|exists:classes,class_id',
             'date' => 'sometimes|date_format:Y-m-d',
@@ -112,16 +125,14 @@ class AttendanceController extends Controller
             return response()->json(['errors' => 'The provided data is not valid', 'details' => $validator->errors()], 422);
         }
 
-        // --- 3. Data Retrieval ---
+        // --- 5. Data Retrieval ---
         $classId = $request->input('class_id');
         $date = $request->input('date');
-
-        // Build the query to fetch attendance records, joining with classes
-        // to get details like the class name.
+        
         $query = DB::table('attendances')
             ->join('class_students', 'attendances.class_student_id', '=', 'class_students.id')
             ->join('classes', 'class_students.class_id', '=', 'classes.class_id')
-            ->where('class_students.idnumber', $idnumber) // Filter by the logged-in student's idnumber
+            ->where('class_students.idnumber', $studentIdNumber) // Filter by the determined student's idnumber
             ->select(
                 'classes.class_id',
                 'classes.class_name',
@@ -129,22 +140,19 @@ class AttendanceController extends Controller
                 'attendances.status',
                 'attendances.remarks'
             )
-            ->orderBy('attendances.attendance_date', 'desc'); // Order records by date
+            ->orderBy('attendances.attendance_date', 'desc');
 
-        // Conditionally apply the class and date filters if they were provided.
+        // Conditionally apply filters
         $records = $query->when($classId, function ($q) use ($classId) {
             return $q->where('classes.class_id', $classId);
         })->when($date, function ($q) use ($date) {
             return $q->where('attendances.attendance_date', $date);
         })->get();
 
-        // --- 4. Format and Return JSON Response ---
-        // We can get the student's name from the authenticated user object.
-        $studentDetails = DB::table('students')->where('idnumber', $idnumber)->first();
-        
+        // --- 6. Format and Return JSON Response ---
         return response()->json([
             'student' => [
-                'idnumber' => $idnumber,
+                'idnumber' => $studentDetails->idnumber,
                 'firstname' => $studentDetails->firstname,
                 'lastname' => $studentDetails->lastname,
             ],
