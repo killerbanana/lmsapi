@@ -31,11 +31,8 @@ class Attendance extends Model
         'attendance_date' => 'date',
     ];
 
-    /**
-     * Get the enrollment record (class_student) that this attendance record belongs to.
-     */
-    public function classStudent(): BelongsTo
+    public function studentClass()
     {
-        return $this->belongsTo(StudentClass::class, 'class_student_id');
+        return $this->belongsTo(StudentClass::class, 'class_student_id', 'id');
     }
 }

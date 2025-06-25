@@ -84,4 +84,10 @@ class User extends Authenticatable
             ->withPivot('progress')
             ->withTimestamps();
     }
+
+    public function student()
+    {
+        // This links 'users.idnumber' to 'students.idnumber'
+        return $this->hasOne(Students::class, 'idnumber', 'idnumber');
+    }
 }
