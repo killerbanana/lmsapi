@@ -564,44 +564,47 @@ class UserController extends Controller
     }
 
 
-    public function forgotPassword(Request $request, $idnumber)
-        {
-            $validator = Validator::make($request->all(), [
-                'new_password' => 'required|string|min:6|confirmed',
-                'email' => 'required|email',
-                'otp' => 'required|string',
-            ]);
+    public function forgotPassword(Request $request)
+    {
+        // 1. Validate the incoming request data
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'otp' => 'required|string',
+            'new_password' => 'required|string|min:6|confirmed',
+        ]);
 
-            if ($validator->fails()) {
-                return response()->json($validator->errors(), 422);
-            }
-
-            $user = User::where('idnumber', $idnumber)->first();
-
-            if (!$user) {
-                return response()->json(['message' => 'User not found.'], 404);
-            }
-
-            // Check email matches user
-            if ($request->email !== $user->email) {
-                return response()->json(['message' => 'Email does not match user.'], 400);
-            }
-
-            // Verify OTP
-            $cachedOtp = Cache::get("otp_{$request->email}");
-            if (!$cachedOtp || $cachedOtp != $request->otp) {
-                return response()->json(['message' => 'Invalid or expired OTP.'], 401);
-            }
-
-            // Update password
-            $user->password = bcrypt($request->new_password);
-            $user->save();
-
-            // Remove used OTP
-            Cache::forget("otp_{$request->email}");
-
-            return response()->json(['message' => 'Password changed successfully.']);
+        // If validation fails, return the errors
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
         }
+
+        // 2. Find the user by the provided email address
+        // We use the email from the request instead of an ID number from the URL.
+        $user = User::where('email', $request->email)->first();
+
+        // If no user is found with that email, return an error
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // 3. Verify the One-Time Password (OTP)
+        // The OTP is retrieved from the cache using the user's email as the key.
+        $cachedOtp = Cache::get("otp_{$request->email}");
+        if (!$cachedOtp || $cachedOtp != $request->otp) {
+            return response()->json(['message' => 'Invalid or expired OTP.'], 401);
+        }
+
+        // 4. Update the user's password
+        // The new password is encrypted before saving.
+        $user->password = bcrypt($request->new_password);
+        $user->save();
+
+        // 5. Clean up by removing the used OTP from the cache
+        Cache::forget("otp_{$request->email}");
+
+        // 6. Return a success response
+        return response()->json(['message' => 'Password changed successfully.']);
+    }
 
     public function changePassword(Request $request, $idnumber)
     {
