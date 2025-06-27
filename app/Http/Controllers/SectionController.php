@@ -66,6 +66,7 @@ class SectionController extends Controller
                     return [
                         'dropbox_id' => $dropbox->id,
                         'title' => $dropbox->title,
+                        'max_attempts' => $dropbox->max_attempts,
                         'students' => $dropbox->students->map(function ($student) {
                             return [
                                 'idnumber' => $student->idnumber,
@@ -75,6 +76,7 @@ class SectionController extends Controller
                                 'status' => $student->status,
                                 'score' => $student->pivot->score ?? null,
                                 'submitted_at' => $student->pivot->submitted_at ?? null,
+                                'is_max_attempt' => $dropbox->max_attempts ? ($student->pivot->attempts >= $dropbox->max_attempts) : false,
                             ];
                         }),
                     ];
@@ -88,6 +90,7 @@ class SectionController extends Controller
                         'instructions' => $quiz->instructions,
                         'due' => $quiz->due,
                         'max_score' => $quiz->max_score,
+                        'max_attempts' => $quiz->max_attempts,
                         'students' => $quiz->students->map(function ($student) {
                             return [
                                 'idnumber' => $student->idnumber,
@@ -98,6 +101,7 @@ class SectionController extends Controller
                                 'score' => $student->pivot->score ?? null,
                                 'submitted_at' => $student->pivot->submitted_at ?? null,
                                 'attempt' => $student->pivot->attempt ?? null,
+                                'is_max_attempt' => $quiz->max_attempts ? ($student->pivot->attempts >= $quiz->max_attempts) : false,
                             ];
                         }),
                     ];
@@ -184,6 +188,7 @@ class SectionController extends Controller
                                 'score'        => $student->pivot->score,
                                 'submitted_at' => $student->pivot->submitted_at,
                                 'is_submitted' => !is_null($student->pivot->submitted_at),
+                                'is_max_attempt' => $dropbox->max_attempts ? ($student->pivot->attempts >= $dropbox->max_attempts) : false,
                             ];
                         })->values()->all(), // .values()->all() resets keys to create a clean array
                     ];
