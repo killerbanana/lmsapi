@@ -43,9 +43,12 @@ class UserController extends Controller
         ]);
     }
 
-    public function registerStudent(Request $request)
+     public function registerStudent(Request $request)
     {
         $url = null;
+
+        // --- VALIDATION ---
+        // Added 'email', 'unique:users,email', and 'different:email' rules for primary_email.
         $validator = Validator::make($request->all(), [
             'username' => 'required|string|unique:users,username',
             'idnumber' => 'required|string|unique:users,idnumber',
@@ -63,34 +66,39 @@ class UserController extends Controller
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
             'guardian_contact' => 'nullable|string',
-            'photo' => 'nullable|file|image|max:5120',
+            'photo' => 'nullable|file|image|max:5120', // 5MB max
+            'primary_email' => 'required|email|unique:users,email|different:email',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
 
+        // --- FIREBASE PHOTO UPLOAD ---
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
 
+            // It's recommended to handle Firebase credentials securely, e.g., via environment variables.
             $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
             $bucket = $firebase->createStorage()->getBucket();
 
             $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
 
+            // Upload the file to Firebase Storage
             $bucket->upload(
                 fopen($file->getRealPath(), 'r'),
                 ['name' => $firebaseFilePath]
             );
 
+            // Construct the public URL for the uploaded file
             $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
         }
 
-        // Start DB transaction
-        \DB::beginTransaction();
+        // Start DB transaction to ensure all or no records are created.
+        DB::beginTransaction();
 
         try {
-            // Create Student User
+            // --- CREATE STUDENT USER ---
             $studentUser = User::create([
                 'username' => $request->username,
                 'idnumber' => $request->idnumber,
@@ -99,7 +107,8 @@ class UserController extends Controller
                 'usertype' => 'Student',
             ]);
 
-            // Store student personal info
+            // --- STORE STUDENT'S PERSONAL INFO ---
+            // Use updateOrCreate to either create a new student record or update an existing one based on idnumber.
             $personalInfo = Students::updateOrCreate(
                 ['idnumber' => $studentUser->idnumber],
                 [
@@ -120,62 +129,34 @@ class UserController extends Controller
                 ]
             );
 
-            // Register father user and parent record
-            if ($request->filled('fathername') || $request->filled('fathercontact')) {
-                $fatherId = $studentUser->idnumber . '-father';
+            // --- CREATE GUARDIAN USER ---
+            // Create a unique ID for the guardian linked to the student.
+            $guardianId = $studentUser->idnumber . '-guardian';
 
-                User::create([
-                    'username' => $fatherId,
-                    'idnumber' => $fatherId,
-                    'email' => $fatherId . '@example.com', // Placeholder email
-                    'password' => bcrypt('parent123'), // Default password
-                    'usertype' => 'Parent',
-                ]);
+            User::create([
+                'username' => $guardianId,
+                'idnumber' => $guardianId,
+                'email' => $request->primary_email,
+                'password' => bcrypt('iacparent'), // Use a more secure default password or a generated one.
+                'usertype' => 'Parent',
+            ]);
 
-                ParentModel::create([
-                    'idnumber' => $fatherId,
-                    'firstname' => $request->fathername,
-                    'lastname' => $request->lastname,
-                    'email' => $fatherId . '@example.com',
-                    'phone' => $request->fathercontact,
-                    'linked_id' => $studentUser->idnumber,
-                    'photo' => $url,
-                ]);
-            }
+            // The rest of your commented-out parent/mother logic can be placed here if needed.
 
-            // Register mother user and parent record
-            if ($request->filled('mothername') || $request->filled('mothercontact')) {
-                $motherId = $studentUser->idnumber . '-mother';
-
-                User::create([
-                    'username' => $motherId,
-                    'idnumber' => $motherId,
-                    'email' => $motherId . '@example.com',
-                    'password' => bcrypt('parent123'),
-                    'usertype' => 'Parent',
-                ]);
-
-                ParentModel::create([
-                    'idnumber' => $motherId,
-                    'firstname' => $request->mothername,
-                    'lastname' => $request->lastname,
-                    'email' => $motherId . '@example.com',
-                    'phone' => $request->mothercontact,
-                    'linked_id' => $studentUser->idnumber,
-                    'photo' => $url,
-                ]);
-            }
-
-            \DB::commit();
+            // If everything is successful, commit the transaction.
+            DB::commit();
 
             return response()->json([
-                'message' => 'Student and parent accounts created successfully!',
+                'message' => 'Student and guardian accounts created successfully!',
                 'idnumber' => $personalInfo->idnumber,
             ], 201);
 
         } catch (\Exception $e) {
-            \DB::rollBack();
-            return response()->json(['error' => 'Registration failed', 'details' => $e->getMessage()], 500);
+            // If any error occurs, roll back the transaction.
+            DB::rollBack();
+            // Log the exception for debugging.
+            \Log::error('Student Registration Failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Registration failed. Please try again later.', 'details' => $e->getMessage()], 500);
         }
     }
 
