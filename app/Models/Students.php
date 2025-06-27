@@ -24,7 +24,7 @@ class Students extends Model
         'mothername', 
         'mothercontact',
         'guardian_contact',
-        'guardian_address',
+        'guardian_name',
         'photo',
         'status',
         'primary_email'
