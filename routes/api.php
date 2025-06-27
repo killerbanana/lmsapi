@@ -174,10 +174,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/announcements/{id}', [AnnouncementController::class, 'update'])->middleware('check.ability:update-announcement');
 
-    Route::post('/sections/{section}/dropbox-assessments/{dropboxAssessment}/submit', [SectionController::class, 'submitDropbox'])
+    Route::post('/sections/dropbox-assessments/{dropboxAssessment}/submit', [SectionController::class, 'submitDropbox'])
     ->middleware('check.ability:submit-dropbox-assessment');
 
-    Route::get('/sections/{section}/dropbox-assessments/{dropboxAssessment}/submissions', [SectionController::class, 'checkDropboxSubmissions'])
+    Route::get('/sections/dropbox-assessments/{dropboxAssessment}/submissions', [SectionController::class, 'checkDropboxSubmissions'])
         ->middleware('check.ability:view-dropbox-submissions');
 
     Route::post('/sections/{section}/dropbox-assessments/{dropboxAssessment}/grade/{studentIdnumber}', [SectionController::class, 'gradeDropboxSubmission'])
