@@ -178,7 +178,7 @@ class SectionController extends Controller
                         'due'          => $dropbox->due,
                         'max_score'    => $dropbox->max_score, 
                         'max_attempts' => $dropbox->max_attempts,
-                        'students'   => $students->map(function ($student) {
+                        'students'   => $students->map(function ($student)  use ($dropbox) {
                             return [
                                 'idnumber'     => $student->idnumber,
                                 'firstname'    => $student->firstname,
