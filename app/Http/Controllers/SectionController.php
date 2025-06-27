@@ -67,7 +67,7 @@ class SectionController extends Controller
                         'dropbox_id' => $dropbox->id,
                         'title' => $dropbox->title,
                         'max_attempts' => $dropbox->max_attempts,
-                        'students' => $dropbox->students->map(function ($student) {
+                        'students' => $dropbox->students->map(function ($student)   use ($dropbox) {
                             return [
                                 'idnumber' => $student->idnumber,
                                 'firstname' => $student->firstname,
@@ -91,7 +91,7 @@ class SectionController extends Controller
                         'due' => $quiz->due,
                         'max_score' => $quiz->max_score,
                         'max_attempts' => $quiz->max_attempts,
-                        'students' => $quiz->students->map(function ($student) {
+                        'students' => $quiz->students->map(function ($student)   use ($quiz) {
                             return [
                                 'idnumber' => $student->idnumber,
                                 'firstname' => $student->firstname,
@@ -178,7 +178,7 @@ class SectionController extends Controller
                         'due'          => $dropbox->due,
                         'max_score'    => $dropbox->max_score, 
                         'max_attempts' => $dropbox->max_attempts,
-                        'students'   => $students->map(function ($student) {
+                        'students'   => $students->map(function ($student)  use ($dropbox) {
                             return [
                                 'idnumber'     => $student->idnumber,
                                 'firstname'    => $student->firstname,
