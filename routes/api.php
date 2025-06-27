@@ -173,7 +173,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy'])->middleware('check.ability:delete-announcement');
 
     Route::put('/announcements/{id}', [AnnouncementController::class, 'update'])->middleware('check.ability:update-announcement');
-});
+
+    Route::post('/sections/{section}/dropbox-assessments/{dropboxAssessment}/submit', [SectionController::class, 'submitDropbox'])
+    ->middleware('check.ability:submit-dropbox-assessment');
+
+    Route::get('/sections/{section}/dropbox-assessments/{dropboxAssessment}/submissions', [SectionController::class, 'checkDropboxSubmissions'])
+        ->middleware('check.ability:view-dropbox-submissions');
+
+    Route::post('/sections/{section}/dropbox-assessments/{dropboxAssessment}/grade/{studentIdnumber}', [SectionController::class, 'gradeDropboxSubmission'])
+        ->middleware('check.ability:grade-dropbox-submission');
+    });
 
 
 Route::prefix('attendance')->middleware('auth:sanctum')->group(function () {
