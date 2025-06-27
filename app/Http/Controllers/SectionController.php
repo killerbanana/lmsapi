@@ -170,6 +170,10 @@ class SectionController extends Controller
                     return [
                         'dropbox_id' => $dropbox->id,
                         'title'      => $dropbox->title,
+                        'instructions' => $dropbox->instructions,
+                        'due'          => $dropbox->due,
+                        'max_score'    => $dropbox->max_score, 
+                        'max_attempts' => $dropbox->max_attempts,
                         'students'   => $students->map(function ($student) {
                             return [
                                 'idnumber'     => $student->idnumber,
