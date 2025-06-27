@@ -26,6 +26,7 @@ class Students extends Model
         'guardian_contact',
         'photo',
         'status',
+        'primary_email'
     ];
 
     // Automatically maintain created_at and updated_at columns
