@@ -226,7 +226,7 @@ class SectionController extends Controller
                     return [
                         'title'        => $content->title,
                         'introduction' => $content->introduction,
-                        'content'      => $content->content,
+                        // 'content'      => $content->content,
                     ];
                 });
             }
