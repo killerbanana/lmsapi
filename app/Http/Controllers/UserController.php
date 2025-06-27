@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\TeacherClass;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -66,6 +67,7 @@ class UserController extends Controller
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
             'guardian_contact' => 'nullable|string',
+            'guardian_address' => 'nullable|string',
             'photo' => 'nullable|file|image|max:5120', // 5MB max
             'primary_email' => 'required|email|unique:users,email|different:email',
         ]);
@@ -126,6 +128,7 @@ class UserController extends Controller
                     'mothercontact' => $request->mothercontact,
                     'photo' => $url,
                     'guardian_contact' => $request->guardian_contact,
+                    'guardian_address' => $request->guardian_address,
                 ]
             );
 
