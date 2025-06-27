@@ -102,7 +102,7 @@ class SectionController extends Controller
                         }),
                     ];
                 });
-            } elseif (in_array($section->subtype, ['page', 'file'])) {
+            } elseif (in_array($section->subtype, ['page', 'files'])) {
                 $sectionData['contents'] = $section->contentSections->map(function ($content) {
                     return [
                         'title' => '',
@@ -221,7 +221,7 @@ class SectionController extends Controller
                 });
             }
 
-            if (in_array($section->subtype, ['page', 'file'])) {
+            if (in_array($section->subtype, ['page', 'files'])) {
                 $sectionData['contents'] = $section->contentSections->map(function ($content) {
                     return [
                         'title'        => $content->title,
@@ -424,6 +424,16 @@ class SectionController extends Controller
         if ($validated['type'] === 'content' && $validated['subtype'] === 'page') {
             ContentSection::create([
                 'section_id' => $section->id,
+                'title' => $validated['title'] ?? null,
+                'introduction' => $validated['introduction'] ?? null,
+                'content' => $validated['page_content'] ?? '',
+            ]);
+        }
+
+        if ($validated['type'] === 'content' && $validated['subtype'] === 'files') {
+            ContentSection::create([
+                'section_id' => $section->id,
+                'title' => $validated['title'] ?? null,
                 'introduction' => $validated['introduction'] ?? null,
                 'content' => $validated['page_content'] ?? '',
             ]);
