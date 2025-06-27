@@ -67,7 +67,7 @@ class UserController extends Controller
             'mothername' => 'nullable|string',
             'mothercontact' => 'nullable|string',
             'guardian_contact' => 'nullable|string',
-            'guardian_address' => 'nullable|string',
+            'guardian_name' => 'nullable|string',
             'photo' => 'nullable|file|image|max:5120', // 5MB max
             'primary_email' => 'required|email|unique:users,email|different:email',
         ]);
@@ -128,7 +128,7 @@ class UserController extends Controller
                     'mothercontact' => $request->mothercontact,
                     'photo' => $url,
                     'guardian_contact' => $request->guardian_contact,
-                    'guardian_address' => $request->guardian_address,
+                    'guardian_name' => $request->guardian_name,
                 ]
             );
 
@@ -143,6 +143,20 @@ class UserController extends Controller
                 'password' => bcrypt('iacparent'), // Use a more secure default password or a generated one.
                 'usertype' => 'Parent',
             ]);
+
+            // CORRECTED CODE
+            ParentModel::create([
+                'idnumber' => $guardianId,
+                'firstname' => $request->mothername ?? '',
+                'lastname' => $request->lastname ?? '', // <-- FIXED
+                'email' => $request->primary_email,
+                'phone' => $request->mothercontact ?? '', // Added safe default
+                'linked_id' => $studentUser->idnumber,
+                'guardian_name' => $request->guardian_name,
+                'photo' => $url,
+            ]);
+            
+            
 
             // The rest of your commented-out parent/mother logic can be placed here if needed.
 
@@ -262,6 +276,7 @@ class UserController extends Controller
             'mothercontact' => 'nullable|string',
             'status' => 'nullable|in:active,inactive,blocked',
             'guardian_contact' => 'nullable|string',
+            'guardian_name' => 'nullable|string',
             'photo' => 'nullable|file|image|max:5120', // optional photo
         ]);
 
@@ -305,6 +320,7 @@ class UserController extends Controller
             'mothername' => $request->mothername,
             'mothercontact' => $request->mothercontact,
             'guardian_contact' => $request->guardian_contact,
+            'guardian_name' => $request->guardian_name,
             'photo' => $url
         ]);
 

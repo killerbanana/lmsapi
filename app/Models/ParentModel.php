@@ -15,6 +15,8 @@ class ParentModel extends Model
         'email',
         'phone',
         'linked_id',
+        'photo',
+        'guardian_name',
     ];
 
     public $timestamps = true;
