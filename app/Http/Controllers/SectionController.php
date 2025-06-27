@@ -91,7 +91,7 @@ class SectionController extends Controller
                         'due' => $quiz->due,
                         'max_score' => $quiz->max_score,
                         'max_attempts' => $quiz->max_attempts,
-                        'students' => $quiz->students->map(function ($student)   use ($quiz) {
+                        'students' => $quiz->students->map(function ($student) {
                             return [
                                 'idnumber' => $student->idnumber,
                                 'firstname' => $student->firstname,
@@ -895,6 +895,84 @@ class SectionController extends Controller
         return response()->json(['message' => 'Quiz answer submitted successfully.']);
     }
 
+    public function submitDropbox(Request $request, $dropboxAssessmentId)
+    {
+        // 1. Authorization: Ensure the user is a student
+        $user = Auth::user();
+        if (!$user || $user->usertype !== 'Student') {
+            return response()->json(['error' => 'Unauthorized.'], 403);
+        }
+
+        // 2. Validation: A file is required for dropbox submission
+        $request->validate([
+            'submission_text' => 'nullable|string',
+            'file' => 'required|file|max:10240', // Max 10MB, adjust as needed
+        ]);
+
+        $studentId = $user->idnumber;
+        $dropbox = DropboxAssessment::findOrFail($dropboxAssessmentId);
+
+        // 3. Link Check: Ensure the student is enrolled in this dropbox
+        $submission = DB::table('dropbox_assessment_student')
+            ->where('dropbox_assessment_id', $dropbox->id)
+            ->where('student_idnumber', $studentId)
+            ->first();
+
+        if (!$submission) {
+            return response()->json(['error' => 'You are not linked to this dropbox assessment.'], 403);
+        }
+
+        // 4. Due Date & Late Submission Check
+        if (now()->gt($dropbox->due_date) && !$dropbox->allow_late) {
+            return response()->json([
+                'error' => 'The deadline for this dropbox has passed and late submissions are not allowed.'
+            ], 403);
+        }
+
+        // 5. Attempt Limit Check
+        if ($submission->attempts >= $dropbox->max_attempts) {
+            return response()->json([
+                'error' => 'You have reached the maximum number of submission attempts.'
+            ], 403);
+        }
+
+        // 6. File Upload to Firebase
+        $fileUrl = null;
+        if ($request->hasFile('file')) {
+            $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+            $bucket = $firebase->createStorage()->getBucket(env('FIREBASE_STORAGE_BUCKET')); // Use env variable for bucket name
+
+            $file = $request->file('file');
+            // Create a unique file name to avoid conflicts
+            $firebaseFilePath = 'dropbox_submissions/' . $studentId . '/' . uniqid() . '_' . $file->getClientOriginalName();
+
+            $bucket->upload(
+                fopen($file->getRealPath(), 'r'),
+                ['name' => $firebaseFilePath]
+            );
+
+            // Construct the public URL for the file
+            $fileUrl = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+        }
+
+        // 7. Update Submission in the database
+        DB::table('dropbox_assessment_student')
+            ->where('id', $submission->id) // Use the primary key for precision
+            ->update([
+                'submission_text' => $request->input('submission_text'),
+                'file_path' => $fileUrl,
+                'submitted_at' => now(),
+                'attempts' => DB::raw('attempts + 1'),
+                'updated_at' => now(),
+            ]);
+
+        // 8. (Optional) Update the overall section progress for the student
+        // Assuming you have a similar helper function for progress tracking
+        // $this->updateSectionAndLessonProgress($dropbox->section_id, $user->idnumber);
+
+        return response()->json(['message' => 'File submitted successfully to dropbox.']);
+    }
+
     public function checkQuizAnswers($quizAssessmentId)
     {
         $user = Auth::user();
@@ -927,6 +1005,48 @@ class SectionController extends Controller
         return response()->json([
             'quiz_id' => $quiz->id,
             'quiz_title' => $quiz->title,
+            'submissions' => $submissions,
+        ]);
+    }
+
+     public function checkDropboxSubmissions($dropboxAssessmentId)
+    {
+        $user = Auth::user();
+
+        // 1. Authorization: Ensure the user is a teacher
+        if (!$user || $user->usertype !== 'Teacher') {
+            return response()->json(['error' => 'Unauthorized.'], 403);
+        }
+
+        // 2. Data Retrieval: Get the dropbox assessment details
+        $dropbox = DropboxAssessment::findOrFail($dropboxAssessmentId);
+
+        // 3. Fetch all submissions, joining with student info
+        $submissions = DB::table('dropbox_assessment_student')
+            ->where('dropbox_assessment_id', $dropbox->id)
+            ->join('students', 'dropbox_assessment_student.student_idnumber', '=', 'students.idnumber')
+            ->select(
+                'dropbox_assessment_student.id as submission_id', // Include submission ID for updates
+                'students.idnumber',
+                'students.firstname',
+                'students.lastname',
+                'dropbox_assessment_student.submission_text',
+                'dropbox_assessment_student.file_path',
+                'dropbox_assessment_student.submitted_at',
+                'dropbox_assessment_student.attempts',
+                'dropbox_assessment_student.score'
+            )
+            ->orderByDesc('dropbox_assessment_student.submitted_at')
+            ->get();
+
+        // 4. Format and return the response
+        return response()->json([
+            'dropbox' => [
+                'id' => $dropbox->id,
+                'title' => $dropbox->title,
+                'due_date' => $dropbox->due_date,
+                'max_score' => $dropbox->max_score,
+            ],
             'submissions' => $submissions,
         ]);
     }
@@ -986,6 +1106,63 @@ class SectionController extends Controller
 
         // ✅ FIXED LINE HERE
         $this->updateSectionAndLessonProgress($quiz->section_id, $studentIdnumber);
+
+        return response()->json(['message' => 'Score updated successfully.']);
+    }
+
+    public function gradeDropboxSubmission(Request $request, $dropboxAssessmentId, $studentIdnumber)
+    {
+        $user = Auth::user();
+
+        // 1. Authorization: Ensure the user is a teacher
+        if (!$user || $user->usertype !== 'Teacher') {
+            return response()->json(['error' => 'Unauthorized.'], 403);
+        }
+
+        // 2. Find the Dropbox Assessment
+        // Eager load relationships to find the class this dropbox belongs to.
+        $dropbox = DropboxAssessment::with('section.lesson.class')->findOrFail($dropboxAssessmentId);
+
+        // 3. Validate Score Input
+        // We add a 'max' rule to ensure the score isn't higher than the dropbox's max_score.
+        $request->validate([
+            'score' => 'required|integer|min:0|max:' . $dropbox->max_score,
+        ]);
+
+        // 4. Authorization: Check if teacher is assigned to the class
+        $classId = optional($dropbox->section->lesson->class)->class_id;
+
+        if (!$classId) {
+            return response()->json(['error' => 'Dropbox assessment is not linked to any class.'], 400);
+        }
+
+        $isAssigned = DB::table('class_teachers')
+            ->where('class_id', $classId)
+            ->where('idnumber', $user->idnumber)
+            ->exists();
+
+        if (!$isAssigned) {
+            return response()->json(['error' => 'You are not assigned to teach this class.'], 403);
+        }
+
+        // 5. Find the specific student submission to update
+        $submission = DB::table('dropbox_assessment_student')
+            ->where('dropbox_assessment_id', $dropbox->id)
+            ->where('student_idnumber', $studentIdnumber);
+
+        if (!$submission->first()) {
+            return response()->json(['error' => 'Student has no submission for this dropbox.'], 404);
+        }
+
+        // 6. Update the score in the database
+        $submission->update([
+            'score' => $request->input('score'),
+            'updated_at' => now(),
+        ]);
+
+        // 7. Update the student's overall progress for the section
+        // Assumes you have this helper method available in the controller
+        $this->updateSectionAndLessonProgress($dropbox->section_id, $studentIdnumber);
 
         return response()->json(['message' => 'Score updated successfully.']);
     }
