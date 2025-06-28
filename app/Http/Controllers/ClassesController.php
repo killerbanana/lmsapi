@@ -69,7 +69,7 @@ class ClassesController extends Controller
 
         if ($type === 'teacher') {
             $query = TeacherClass::query()->with('class');
-            
+
             if (!in_array($user->usertype, ['Administrator', 'Teacher'])) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
@@ -155,13 +155,12 @@ class ClassesController extends Controller
 
     public function updateClass(Request $request, $id)
     {
-        try
-        {
+        try {
             $validator = Validator::make($request->all(), [
-            'class_name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'tag' => 'nullable|string',
-            'status' => 'nullable|in:active,inactive',
+                'class_name' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'tag' => 'nullable|string',
+                'status' => 'nullable|in:active,inactive',
             ]);
 
             if ($validator->fails()) {
@@ -177,33 +176,32 @@ class ClassesController extends Controller
             $data = [
                 'class_name' => $request->class_name,
                 'description' => $request->description,
-                 'tag' => $request->tag,
-                 'status' => $request->status,
+                'tag' => $request->tag,
+                'status' => $request->status,
             ];
 
             if ($request->hasFile('photo')) {
-                    $file = $request->file('photo');
+                $file = $request->file('photo');
 
-                    $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-                    $bucket = $firebase->createStorage()->getBucket();
+                $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+                $bucket = $firebase->createStorage()->getBucket();
 
-                    $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+                $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
 
-                    $bucket->upload(
-                        fopen($file->getRealPath(), 'r'),
-                        ['name' => $firebaseFilePath]
-                    );
+                $bucket->upload(
+                    fopen($file->getRealPath(), 'r'),
+                    ['name' => $firebaseFilePath]
+                );
 
-                    $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
-                    $data['photo'] = $url; // only set photo if uploaded
-                }
+                $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+                $data['photo'] = $url; // only set photo if uploaded
+            }
 
             $updated = Classes::where('class_id', $id)->update($data);
 
             return response()->json([
                 'message' => 'Class updated successfully',
             ], 200);
-        
         } catch (\Exception $e) {
             return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
         }
@@ -269,6 +267,4 @@ class ClassesController extends Controller
             return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
         }
     }
-
-
 }

@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Http\Controllers;
+
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use App\Services\OtpEmailService;
@@ -17,7 +19,7 @@ class otpController extends Controller
         $emailTo = $request->input('email');
         $name = $request->input('name', 'User');
         $otp = rand(100000, 999999);
-        
+
 
         $apiKey = config('services.sendgrid.api_key');
 
@@ -68,7 +70,7 @@ class otpController extends Controller
 
         $emailTo = $request->input('email');
         $otp = rand(100000, 999999);
-        
+
 
         $apiKey = config('services.sendgrid.api_key');
 

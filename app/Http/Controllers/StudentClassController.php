@@ -30,8 +30,8 @@ class StudentClassController extends Controller
         }
 
         $exists = StudentClass::where('idnumber', $validated['idnumber'])
-                              ->where('class_id', $validated['class_id'])
-                              ->exists();
+            ->where('class_id', $validated['class_id'])
+            ->exists();
 
         if ($exists) {
             return response()->json(['message' => 'Student already enrolled in class.'], 409);

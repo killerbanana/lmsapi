@@ -54,7 +54,7 @@ class DropboxAssessmentController extends Controller
             'require_for_completion' => $validated['require_for_completion'] ?? false,
         ]);
 
-        
+
 
         if ($request->hasFile('files')) {
             $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));

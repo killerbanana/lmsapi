@@ -11,14 +11,14 @@ class Admin extends Model
 
     // The attributes that are mass assignable
     protected $fillable = [
-        'idnumber', 
-        'firstname', 
-        'lastname', 
-        'email', 
-        'phone', 
-        'gender', 
-        'birthdate', 
-        'address', 
+        'idnumber',
+        'firstname',
+        'lastname',
+        'email',
+        'phone',
+        'gender',
+        'birthdate',
+        'address',
         'picture',
     ];
 
