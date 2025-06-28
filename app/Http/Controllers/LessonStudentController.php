@@ -77,10 +77,10 @@ class LessonStudentController extends Controller
         // Check if user is a teacher assigned to the class of the lesson
         $isTeacher = $user->usertype === 'Teacher' &&
             DB::table('class_teachers')
-                ->where('class_id', $lesson->class_id)
-                ->where('idnumber', $user->idnumber)
-                ->where('status', 'active')
-                ->exists();
+            ->where('class_id', $lesson->class_id)
+            ->where('idnumber', $user->idnumber)
+            ->where('status', 'active')
+            ->exists();
 
         // Only allow if student updating self or assigned teacher
         if (!$isStudent && !$isTeacher) {

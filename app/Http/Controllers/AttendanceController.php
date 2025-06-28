@@ -33,7 +33,7 @@ class AttendanceController extends Controller
         if ($validator->fails()) {
             return response()->json(['errors' => 'The provided data is not valid', 'details' => $validator->errors()], 422);
         }
-        
+
         $classId = $request->input('class_id');
         $date = $request->input('date');
 
@@ -91,7 +91,7 @@ class AttendanceController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
 
-     public function getStudentAttendance(Request $request)
+    public function getStudentAttendance(Request $request)
     {
         // --- 1. Get Authenticated User ---
         $user = Auth::user();
@@ -110,7 +110,7 @@ class AttendanceController extends Controller
             // User is assumed to be a student
             $studentIdNumber = $user->idnumber;
         }
-        
+
         // --- 3. Validate Student Existence ---
         $studentDetails = DB::table('students')->where('idnumber', $studentIdNumber)->first();
         if (!$studentDetails) {
@@ -130,7 +130,7 @@ class AttendanceController extends Controller
         // --- 5. Data Retrieval ---
         $classId = $request->input('class_id');
         $date = $request->input('date');
-        
+
         $query = DB::table('attendances')
             ->join('class_students', 'attendances.class_student_id', '=', 'class_students.id')
             ->join('classes', 'class_students.class_id', '=', 'classes.class_id')
@@ -237,7 +237,7 @@ class AttendanceController extends Controller
 
         return response()->json(['message' => 'Attendance for class ' . $request->class_id . ' on ' . $attendanceDate . ' has been saved.'], 200);
     }
-    
+
     /**
      * Display a specific attendance record.
      *
@@ -275,7 +275,7 @@ class AttendanceController extends Controller
             'status' => $request->status,
             'remarks' => $request->remarks,
         ]);
-        
+
         return response()->json(['message' => 'Attendance record updated successfully.', 'data' => $attendance], 200);
     }
 

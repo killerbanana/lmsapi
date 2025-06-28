@@ -27,24 +27,24 @@ class UserController extends Controller
         if (! $request->user()) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
-        
+
         // Admin with [*] or user with specific permission can access
         if (! $request->user()->tokenCan('view-students') && $request->user()->usertype !== 'Administrator') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-    
+
         // Get all students (you can filter by usertype or any logic)
         $students = PersonalInfo::whereHas('user', function ($query) {
             $query->where('usertype', 'Student');
         })->get();;
-    
+
         return response()->json([
             'message' => 'Students retrieved successfully',
             'data' => $students
         ]);
     }
 
-     public function registerStudent(Request $request)
+    public function registerStudent(Request $request)
     {
         $url = null;
 
@@ -155,8 +155,8 @@ class UserController extends Controller
                 'guardian_name' => $request->guardian_name,
                 'photo' => $url,
             ]);
-            
-            
+
+
 
             // The rest of your commented-out parent/mother logic can be placed here if needed.
 
@@ -167,7 +167,6 @@ class UserController extends Controller
                 'message' => 'Student and guardian accounts created successfully!',
                 'idnumber' => $personalInfo->idnumber,
             ], 201);
-
         } catch (\Exception $e) {
             // If any error occurs, roll back the transaction.
             DB::rollBack();
@@ -187,7 +186,6 @@ class UserController extends Controller
             } else {
                 return response()->json(['error' => 'Parent not found.'], 404);
             }
-
         } catch (\Exception $e) {
             return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
         }
@@ -316,7 +314,7 @@ class UserController extends Controller
             'birthdate' => $request->birthdate,
             'address' => $request->address,
             'fathername' => $request->fathername,
-            'fathercontact' =>$request->fathercontact,
+            'fathercontact' => $request->fathercontact,
             'mothername' => $request->mothername,
             'mothercontact' => $request->mothercontact,
             'guardian_contact' => $request->guardian_contact,
@@ -351,7 +349,6 @@ class UserController extends Controller
 
             \DB::commit();
             return response()->json(['message' => 'Student and parents deleted successfully.']);
-
         } catch (\Exception $e) {
             \DB::rollBack();
             return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
@@ -437,7 +434,6 @@ class UserController extends Controller
             } else {
                 return response()->json(['error' => 'Teacher not found.'], 404);
             }
-
         } catch (\Exception $e) {
             return response()->json(['error' => 'Deletion failed', 'details' => $e->getMessage()], 500);
         }
@@ -468,47 +464,7 @@ class UserController extends Controller
         }
 
         switch ($user->usertype) {
-        case 'Administrator':
-            $data = [
-                'firstname' => $request->firstname,
-                'lastname' => $request->lastname,
-                'phone' => $request->phone,
-                'gender' => $request->gender,
-                'birthdate' => $request->birthdate,
-                'address' => $request->address,
-            ];
-
-            // Handle photo upload if exists
-            if ($request->hasFile('photo')) {
-                $file = $request->file('photo');
-
-                $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
-                $bucket = $firebase->createStorage()->getBucket();
-
-                $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
-
-                $bucket->upload(
-                    fopen($file->getRealPath(), 'r'),
-                    ['name' => $firebaseFilePath]
-                );
-
-                $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
-                $data['photo'] = $url; // only set photo if uploaded
-            }
-
-            // Update teacher
-            $updated = Teachers::where('idnumber', $idnumber)->update($data);
-
-            if ($updated) {
-                return response()->json([
-                    'message' => 'Teacher info updated successfully.',
-                ]);
-            } else {
-                return response()->json(['message' => 'Failed to update teacher.'], 500);
-            }
-            break;
-        case 'Teacher':
-            if($user->idnumber === $idnumber){
+            case 'Administrator':
                 $data = [
                     'firstname' => $request->firstname,
                     'lastname' => $request->lastname,
@@ -546,21 +502,58 @@ class UserController extends Controller
                 } else {
                     return response()->json(['message' => 'Failed to update teacher.'], 500);
                 }
-            }
+                break;
+            case 'Teacher':
+                if ($user->idnumber === $idnumber) {
+                    $data = [
+                        'firstname' => $request->firstname,
+                        'lastname' => $request->lastname,
+                        'phone' => $request->phone,
+                        'gender' => $request->gender,
+                        'birthdate' => $request->birthdate,
+                        'address' => $request->address,
+                    ];
 
-            else{
-                return response()->json(['message' => 'Unathorized to update profile.'], 403);
-            }
-            
-            break;
-        case 'Student':
-            $personalInfo = Students::where('idnumber', $user->idnumber)->first();
-            break;
-        default:
-            // Optionally handle unexpected usertype
-            $personalInfo = null;
+                    // Handle photo upload if exists
+                    if ($request->hasFile('photo')) {
+                        $file = $request->file('photo');
+
+                        $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+                        $bucket = $firebase->createStorage()->getBucket();
+
+                        $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
+
+                        $bucket->upload(
+                            fopen($file->getRealPath(), 'r'),
+                            ['name' => $firebaseFilePath]
+                        );
+
+                        $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+                        $data['photo'] = $url; // only set photo if uploaded
+                    }
+
+                    // Update teacher
+                    $updated = Teachers::where('idnumber', $idnumber)->update($data);
+
+                    if ($updated) {
+                        return response()->json([
+                            'message' => 'Teacher info updated successfully.',
+                        ]);
+                    } else {
+                        return response()->json(['message' => 'Failed to update teacher.'], 500);
+                    }
+                } else {
+                    return response()->json(['message' => 'Unathorized to update profile.'], 403);
+                }
+
+                break;
+            case 'Student':
+                $personalInfo = Students::where('idnumber', $user->idnumber)->first();
+                break;
+            default:
+                // Optionally handle unexpected usertype
+                $personalInfo = null;
         }
-        
     }
 
 
@@ -675,7 +668,7 @@ class UserController extends Controller
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
-        
+
         $abilities = RoleAbilitiesService::getAbilities($user->usertype);
 
         // Delete previous token
@@ -687,19 +680,19 @@ class UserController extends Controller
         $token = $user->createToken('auth_token', $abilities)->plainTextToken;
 
         switch ($user->usertype) {
-        case 'Administrator':
-            $personalInfo = Admin::where('idnumber', $user->idnumber)->first();
-            break;
-        case 'Teacher':
-            $personalInfo = Teachers::where('idnumber', $user->idnumber)->first();
-            break;
-        case 'Student':
-            $personalInfo = Students::where('idnumber', $user->idnumber)->first();
-            break;
-        default:
-            // Optionally handle unexpected usertype
-            $personalInfo = null;
-    }
+            case 'Administrator':
+                $personalInfo = Admin::where('idnumber', $user->idnumber)->first();
+                break;
+            case 'Teacher':
+                $personalInfo = Teachers::where('idnumber', $user->idnumber)->first();
+                break;
+            case 'Student':
+                $personalInfo = Students::where('idnumber', $user->idnumber)->first();
+                break;
+            default:
+                // Optionally handle unexpected usertype
+                $personalInfo = null;
+        }
 
         return response()->json([
             'message' => 'Login successful',
@@ -836,5 +829,4 @@ class UserController extends Controller
 
         return response()->json(['logged_in' => false], 401);
     }
-
 }

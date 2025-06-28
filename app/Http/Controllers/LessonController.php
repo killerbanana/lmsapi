@@ -15,7 +15,7 @@ use Exception;
 
 class LessonController extends Controller
 {
-     public function createLesson(Request $request)
+    public function createLesson(Request $request)
     {
         $user = Auth::user();
 
@@ -92,9 +92,9 @@ class LessonController extends Controller
         $studentIdnumber = $request->input('idnumber');
 
         // ✅ Check if the student is enrolled in the class
-       $exists = StudentClass::where('idnumber', $studentIdnumber)
-                              ->where('class_id', $class_id)
-                              ->exists();
+        $exists = StudentClass::where('idnumber', $studentIdnumber)
+            ->where('class_id', $class_id)
+            ->exists();
 
 
         if (!$exists) {
@@ -131,7 +131,7 @@ class LessonController extends Controller
         ], 200);
     }
 
-    
+
     public function getAllLessons(Request $request)
     {
         try {
@@ -162,7 +162,7 @@ class LessonController extends Controller
                     $join->on('lessons.id', '=', 'lesson_student.lesson_id')
                         ->where('lesson_student.idnumber', '=', $user->idnumber);
                 })
-                ->addSelect('lessons.*', 'lesson_student.progress');
+                    ->addSelect('lessons.*', 'lesson_student.progress');
             }
 
             $paginated = $query->paginate($perPage);

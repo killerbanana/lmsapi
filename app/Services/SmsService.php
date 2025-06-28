@@ -15,7 +15,7 @@ class SmsService
 
         \Log::info("SID: $sid");
         \Log::info("TOKEN: $token");
-        
+
 
         $this->twilio = new Client($sid, $token);
     }
@@ -30,4 +30,3 @@ class SmsService
         ]);
     }
 }
-

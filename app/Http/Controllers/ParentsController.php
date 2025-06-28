@@ -34,7 +34,7 @@ class ParentsController extends Controller
         if (!$parent) {
             return response()->json(['error' => 'Parent not found.'], 404);
         }
-        
+
         $student = Students::where('idnumber', $parent->linked_id)
             ->with([
                 'classes',       // Assuming pivot table exists
@@ -50,5 +50,4 @@ class ParentsController extends Controller
             'student' => $student
         ]);
     }
-
 }

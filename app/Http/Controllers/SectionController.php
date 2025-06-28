@@ -11,7 +11,7 @@ use App\Models\SectionQuiz;
 use App\Models\QuizAssessment;
 use Kreait\Firebase\Factory;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon; 
+use Carbon\Carbon;
 use App\Models\TeacherClass;
 use App\Models\Students;
 use App\Models\DropboxAssessment;
@@ -24,7 +24,7 @@ class SectionController extends Controller
      * Create a new section for a lesson.
      */
 
-     public function getLessonSectionsWithTypesAndStudents1($lessonId)
+    public function getLessonSectionsWithTypesAndStudents1($lessonId)
     {
         $user = Auth::user();
 
@@ -136,7 +136,7 @@ class SectionController extends Controller
     }
 
 
-   public function getLessonSectionsWithTypesAndStudents($lessonId)
+    public function getLessonSectionsWithTypesAndStudents($lessonId)
     {
         $user = Auth::user();
         $studentIdnumber = null;
@@ -175,8 +175,8 @@ class SectionController extends Controller
                         'dropbox_id' => $dropbox->id,
                         'title'      => $dropbox->title,
                         'instructions' => $dropbox->instructions,
-                        'due'          => $dropbox->due,
-                        'max_score'    => $dropbox->max_score, 
+                        'due'          => $dropbox->due_date,
+                        'max_score'    => $dropbox->max_score,
                         'max_attempts' => $dropbox->max_attempts,
                         'students'   => $students->map(function ($student)  use ($dropbox) {
                             return [
@@ -594,7 +594,6 @@ class SectionController extends Controller
             })->toArray();
 
             DB::table('quiz_assessment_student')->insert($pivotData);
-
         } elseif ($validated['type'] === 'assessment' && $validated['subtype'] === 'dropbox') {
             $dropbox = DropboxAssessment::create([
                 'section_id' => $section->id,
@@ -606,18 +605,18 @@ class SectionController extends Controller
                 'due_date' => now()->addDays(7),
                 'grading_scale' => 'Default',
                 'grading' => 'Normal',
-                'max_attempts' => $validated['max_attempts'] ??1,
-                'allow_late' => $validated['allow_late'] ??false,
-                'timed' => $validated['timed'] ??false,
-                'instant_feedback' =>$validated['instant_feedback'] ?? false,
-                'release_grades' => $validated['release_grades'] ??'Instant',
-                'grading_method' => $validated['grading_method'] ??'latest',
-                'disable_past_due' => $validated['disable_past_due'] ??false,
-                'autocomplete_on_retake' => $validated['autocomplete_on_retake'] ??false,
-                'randomize_order' => $validated['randomize_order'] ??true,
-                'allow_review' => $validated['allow_review'] ??true,
-                'allow_jump' => $validated['allow_jump'] ??true,
-                'show_in_results' => $validated['show_in_results'] ??json_encode([]),
+                'max_attempts' => $validated['max_attempts'] ?? 1,
+                'allow_late' => $validated['allow_late'] ?? false,
+                'timed' => $validated['timed'] ?? false,
+                'instant_feedback' => $validated['instant_feedback'] ?? false,
+                'release_grades' => $validated['release_grades'] ?? 'Instant',
+                'grading_method' => $validated['grading_method'] ?? 'latest',
+                'disable_past_due' => $validated['disable_past_due'] ?? false,
+                'autocomplete_on_retake' => $validated['autocomplete_on_retake'] ?? false,
+                'randomize_order' => $validated['randomize_order'] ?? true,
+                'allow_review' => $validated['allow_review'] ?? true,
+                'allow_jump' => $validated['allow_jump'] ?? true,
+                'show_in_results' => $validated['show_in_results'] ?? json_encode([]),
                 'library' => 'Personal',
             ]);
 
@@ -732,8 +731,8 @@ class SectionController extends Controller
             'contentSections',
             'assessmentSection'
         ])
-        ->whereIn('lesson_id', $lessonIds)
-        ->get();
+            ->whereIn('lesson_id', $lessonIds)
+            ->get();
 
         // Group by class → lessons → sections
         $grouped = $lessons->groupBy('class_id')->map(function ($classLessons, $classId) use ($sections) {
@@ -744,7 +743,7 @@ class SectionController extends Controller
                         'lesson' => $lesson,
                         'sections' => $sections->where('lesson_id', $lesson->id)->values(),
                     ];
-                })->filter(fn ($item) => $item['sections']->isNotEmpty())->values()
+                })->filter(fn($item) => $item['sections']->isNotEmpty())->values()
             ];
         })->values();
 
@@ -1009,7 +1008,7 @@ class SectionController extends Controller
         ]);
     }
 
-     public function checkDropboxSubmissions($dropboxAssessmentId)
+    public function checkDropboxSubmissions($dropboxAssessmentId)
     {
         $user = Auth::user();
 
@@ -1212,5 +1211,4 @@ class SectionController extends Controller
                 'updated_at' => now(),
             ]);
     }
-
 }
