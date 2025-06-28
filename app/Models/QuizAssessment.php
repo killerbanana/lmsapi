@@ -57,9 +57,14 @@ class QuizAssessment extends Model
 
     public function students()
     {
-        return $this->belongsToMany(User::class, 'quiz_assessment_student', 'quiz_assessment_id', 'student_idnumber', 'id', 'idnumber')
-            ->withPivot(['score', 'submitted_at', 'attempts', 'answer_text', 'file_path'])
-            ->withTimestamps();
+        return $this->belongsToMany(
+            Students::class,                 // The target model is Student
+            'quiz_assessment_student',      // The name of the pivot table
+            'quiz_assessment_id',           // Foreign key on pivot table for this model
+            'student_idnumber',             // Foreign key on pivot table for the Student model
+            'id',                           // Parent key on this model (QuizAssessment)
+            'idnumber'                      // The key on the Student model to join with
+        )->withPivot('score', 'submitted_at', 'attempts', 'answer_text', 'file_path');
     }
     
 }

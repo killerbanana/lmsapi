@@ -206,7 +206,7 @@ class SectionController extends Controller
                         'title'        => $quiz->title,
                         'instructions' => $quiz->instructions,
                         'due'          => $quiz->due,
-                        'max_score'    => $quiz->max_score, // Consistently using 'points'
+                        'max_score'    => $quiz->max_score,
                         'max_attempts' => $quiz->max_attempts,
                         'students'     => $students->map(function ($student) use ($quiz) {
                             return [
