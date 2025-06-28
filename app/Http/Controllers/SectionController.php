@@ -485,6 +485,73 @@ class SectionController extends Controller
         return response()->json(['message' => 'Section created successfully'], 201);
     }
 
+    public function destroy($id)
+    {
+        // Manually find the section by its ID or fail with a 404 error.
+        // This replaces the automatic route model binding.
+        $section = Section::findOrFail($id);
+
+        $userIdnumber = auth()->user()->idnumber;
+
+        // Ensure the lesson and its class_id exist before proceeding
+        // The 'lesson' relationship will be lazy-loaded here on first access.
+        if (!$section->lesson || !$section->lesson->class_id) {
+            Log::warning("Attempted to delete section (ID: {$section->id}) that is not linked to a valid lesson or class.");
+            return response()->json(['message' => 'Cannot delete section: Invalid lesson data.'], 400);
+        }
+
+        // Get the list of class IDs the teacher is assigned to
+        $teacherClassIds = DB::table('class_teachers')
+            ->where('idnumber', $userIdnumber)
+            ->pluck('class_id');
+
+        // Verify the teacher is assigned to the class of this lesson
+        if (!$teacherClassIds->contains($section->lesson->class_id)) {
+            return response()->json(['message' => 'You are not authorized to delete this section.'], 403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Delete associated files from Firebase Storage
+            $resources = SectionResource::where('section_id', $section->id)->get();
+            if ($resources->isNotEmpty()) {
+                $factory = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
+                $storage = $factory->createStorage();
+                $bucket = $storage->getBucket();
+
+                foreach ($resources as $resource) {
+                    $urlParts = explode('/o/', $resource->url);
+                    if (count($urlParts) > 1) {
+                        $encodedPath = explode('?alt=media', $urlParts[1])[0];
+                        $filePath = urldecode($encodedPath);
+                        $object = $bucket->object($filePath);
+                        if ($object->exists()) {
+                            $object->delete();
+                        }
+                    }
+                }
+            }
+
+            // 2. Delete related records from the database
+            ContentSection::where('section_id', $section->id)->delete();
+            SectionResource::where('section_id', $section->id)->delete();
+            DB::table('section_progress')->where('section_id', $section->id)->delete();
+
+            // 3. Delete the main section record
+            $section->delete();
+
+            DB::commit();
+
+            return response()->json(['message' => 'Section deleted successfully'], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to delete section: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json(['message' => 'An error occurred while deleting the section.'], 500);
+        }
+    }
+
     public function createAssessment(Request $request)
     {
         $validated = $request->validate([
