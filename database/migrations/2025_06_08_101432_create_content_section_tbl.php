@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('section_id')->constrained()->onDelete('cascade'); // links to sections.id
             $table->text('introduction')->nullable();   // Optional intro text
+            $table->text('title')->nullable(); 
             $table->longText('content')->nullable();    // HTML/text content
             $table->timestamps();
         });
