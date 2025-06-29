@@ -20,6 +20,7 @@ class DropboxAssessment extends Model
         'allow_late',
         'grading',
         'instructions',
+        'answer_text'
     ];
 
     public function section()

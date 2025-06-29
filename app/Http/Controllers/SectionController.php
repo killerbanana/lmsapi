@@ -468,7 +468,26 @@ class SectionController extends Controller
             }
         }
 
+        $allStudentIdnumbers = DB::table('lesson_student')->where('lesson_id', $section->lesson_id)->pluck('idnumber');
+
+        $sectionProgressData = $allStudentIdnumbers->map(fn($idnumber) => [
+            'idnumber' => $idnumber,
+            'section_id' => $section->id,
+            'status' => 'not_started',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ])->toArray();
+
+        DB::table('section_progress')->insert($sectionProgressData);
+
+        // 📊 Track section progress
         $lessonStudentIds = DB::table('lesson_student')->where('lesson_id', $section->lesson_id)->pluck('idnumber');
+
+        if ($section->require_for_completion) {
+            foreach ($allStudentIdnumbers as $idnumber) {
+                $this->recalculateLessonProgress($section->lesson_id, $idnumber);
+            }
+        }
 
         $sectionProgressData = $lessonStudentIds->map(function ($idnumber) use ($section) {
             return [
@@ -487,33 +506,28 @@ class SectionController extends Controller
 
     public function destroy($id)
     {
-        // Manually find the section by its ID or fail with a 404 error.
-        // This replaces the automatic route model binding.
         $section = Section::findOrFail($id);
 
         $userIdnumber = auth()->user()->idnumber;
 
-        // Ensure the lesson and its class_id exist before proceeding
-        // The 'lesson' relationship will be lazy-loaded here on first access.
         if (!$section->lesson || !$section->lesson->class_id) {
             Log::warning("Attempted to delete section (ID: {$section->id}) that is not linked to a valid lesson or class.");
             return response()->json(['message' => 'Cannot delete section: Invalid lesson data.'], 400);
         }
 
-        // Get the list of class IDs the teacher is assigned to
         $teacherClassIds = DB::table('class_teachers')
             ->where('idnumber', $userIdnumber)
             ->pluck('class_id');
 
-        // Verify the teacher is assigned to the class of this lesson
         if (!$teacherClassIds->contains($section->lesson->class_id)) {
             return response()->json(['message' => 'You are not authorized to delete this section.'], 403);
         }
 
+        $lessonId = $section->lesson_id;
+        $studentIdnumbers = DB::table('lesson_student')->where('lesson_id', $lessonId)->pluck('idnumber');
+
         try {
             DB::beginTransaction();
-
-            // 1. Delete associated files from Firebase Storage
             $resources = SectionResource::where('section_id', $section->id)->get();
             if ($resources->isNotEmpty()) {
                 $factory = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
@@ -533,15 +547,16 @@ class SectionController extends Controller
                 }
             }
 
-            // 2. Delete related records from the database
             ContentSection::where('section_id', $section->id)->delete();
             SectionResource::where('section_id', $section->id)->delete();
             DB::table('section_progress')->where('section_id', $section->id)->delete();
 
-            // 3. Delete the main section record
             $section->delete();
-
             DB::commit();
+
+            foreach ($studentIdnumbers as $idnumber) {
+                $this->recalculateLessonProgress($lessonId, $idnumber);
+            }
 
             return response()->json(['message' => 'Section deleted successfully'], 200);
 
@@ -624,9 +639,9 @@ class SectionController extends Controller
                 'instructions' => $validated['instructions'] ?? 'Untitled Quiz',
                 'points' => $validated['points'],
                 'category' => $validated['category'],
-                'start' => now(),
+                'start' => $validated['start_date'] ??now(),
+                'due' =>  $validated['due_date'] ?? now()->addDays(7),
                 'max_score' => $validated['max_score'] ?? 100,
-                'due' => now()->addDays(7),
                 'grading_scale' => $validated['grading_scale'] ?? 'Default',
                 'grading' => $validated['grading'] ?? 'Normal',
                 'max_attempts' => $validated['max_attempts'] ?? 1,
@@ -668,8 +683,8 @@ class SectionController extends Controller
                 'instructions' => $validated['instructions'] ?? null,
                 'points' => $validated['points'] ?? null,
                 'category' => $validated['category'] ?? null,
-                'start_date' => now(),
-                'due_date' => now()->addDays(7),
+                'start_date' => $validated['start_date'] ??now(),
+                'due_date' =>  $validated['due_date'] ?? now()->addDays(7),
                 'grading_scale' => 'Default',
                 'grading' => 'Normal',
                 'max_attempts' => $validated['max_attempts'] ?? 1,
@@ -731,8 +746,26 @@ class SectionController extends Controller
             }
         }
 
+        $allStudentIdnumbers = DB::table('lesson_student')->where('lesson_id', $section->lesson_id)->pluck('idnumber');
+
+        $sectionProgressData = $allStudentIdnumbers->map(fn($idnumber) => [
+            'idnumber' => $idnumber,
+            'section_id' => $section->id,
+            'status' => 'not_started',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ])->toArray();
+
+        DB::table('section_progress')->insert($sectionProgressData);
+
         // 📊 Track section progress
         $lessonStudentIds = DB::table('lesson_student')->where('lesson_id', $section->lesson_id)->pluck('idnumber');
+
+        if ($section->require_for_completion) {
+            foreach ($allStudentIdnumbers as $idnumber) {
+                $this->recalculateLessonProgress($section->lesson_id, $idnumber);
+            }
+        }
 
         $sectionProgressData = $lessonStudentIds->map(function ($idnumber) use ($section) {
             return [
@@ -747,6 +780,40 @@ class SectionController extends Controller
         DB::table('section_progress')->insert($sectionProgressData);
 
         return response()->json(['message' => 'Section created successfully'], 201);
+    }
+
+    private function recalculateLessonProgress(int $lessonId, string $idnumber): float
+    {
+        // Get total number of sections required for completion in this lesson
+        $totalRequiredSections = DB::table('sections')
+            ->where('lesson_id', $lessonId)
+            ->where('require_for_completion', true)
+            ->count();
+
+        // Get how many of those required sections this student has completed
+        $completedSections = DB::table('section_progress')
+            ->join('sections', 'sections.id', '=', 'section_progress.section_id')
+            ->where('sections.lesson_id', $lessonId)
+            ->where('section_progress.idnumber', $idnumber)
+            ->where('sections.require_for_completion', true)
+            ->where('section_progress.status', 'completed')
+            ->count();
+
+        // Calculate new progress percentage (avoiding division by zero)
+        $progress = $totalRequiredSections > 0
+            ? round(($completedSections / $totalRequiredSections) * 100, 2)
+            : 0;
+
+        // Update the student's main progress record for the lesson
+        DB::table('lesson_student')
+            ->where('lesson_id', $lessonId)
+            ->where('idnumber', $idnumber)
+            ->update([
+                'progress' => $progress,
+                'updated_at' => now(),
+            ]);
+            
+        return $progress;
     }
 
 
@@ -971,7 +1038,7 @@ class SectionController extends Controller
 
         // 2. Validation: A file is required for dropbox submission
         $request->validate([
-            'submission_text' => 'nullable|string',
+            'answer_text' => 'nullable|string',
             'file' => 'required|file|max:10240', // Max 10MB, adjust as needed
         ]);
 
@@ -1025,7 +1092,7 @@ class SectionController extends Controller
         DB::table('dropbox_assessment_student')
             ->where('id', $submission->id) // Use the primary key for precision
             ->update([
-                'submission_text' => $request->input('submission_text'),
+                'answer_text' => $request->input('answer_text'),
                 'file_path' => $fileUrl,
                 'submitted_at' => now(),
                 'attempts' => DB::raw('attempts + 1'),
