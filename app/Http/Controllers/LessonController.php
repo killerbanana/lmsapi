@@ -10,6 +10,7 @@ use App\Models\Classes;
 use App\Models\TeacherClass;
 use App\Models\StudentClass;
 use App\Models\LessonStudent;
+use App\Models\ParentModel;
 
 use Exception;
 
@@ -139,30 +140,53 @@ class LessonController extends Controller
             $perPage = $request->query('perPage', 10);
             $user = Auth::user();
 
-            $query = Lesson::query();
+            // Define authorized user types
+            $authorizedUserTypes = ['Administrator', 'Student', 'Teacher', 'Parent'];
+            if (!in_array($user->usertype, $authorizedUserTypes)) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
 
+            $query = Lesson::query();
+            $studentIdForProgress = null;
+
+            // Role-based logic to determine which lessons to show
             if ($user->usertype === 'Administrator') {
-                if ($classId) {
-                    $query->where('class_id', $classId);
-                }
+                // Admin can see all lessons. The query is not modified here but can be filtered by classId later.
             } elseif ($user->usertype === 'Teacher') {
+                // Teacher sees lessons they have created.
                 $query->where('idnumber', $user->idnumber);
-                if ($classId) {
-                    $query->where('class_id', $classId);
-                }
             } elseif ($user->usertype === 'Student') {
+                // Student sees lessons for the classes they are enrolled in.
                 $classIds = StudentClass::where('idnumber', $user->idnumber)->pluck('class_id');
                 $query->whereIn('class_id', $classIds);
-                if ($classId) {
-                    $query->where('class_id', $classId);
+                $studentIdForProgress = $user->idnumber;
+
+            } elseif ($user->usertype === 'Parent') {
+                // Parent sees lessons for the classes their linked child is enrolled in.
+                $parent = ParentModel::where('idnumber', $user->idnumber)->first();
+
+                if (!$parent || !$parent->linked_id) {
+                    return response()->json(['message' => 'No linked student found for this parent.'], 404);
                 }
 
-                // Join with lesson_student to get progress
-                $query->leftJoin('lesson_student', function ($join) use ($user) {
+                $studentIdForProgress = $parent->linked_id;
+                $classIds = StudentClass::where('idnumber', $studentIdForProgress)->pluck('class_id');
+                $query->whereIn('class_id', $classIds);
+            }
+
+            // If a specific classId is provided, filter the lessons for that class.
+            // This applies to all roles that have access.
+            if ($classId) {
+                $query->where('class_id', $classId);
+            }
+
+            // For Students and Parents, join with lesson_student to get progress.
+            if ($studentIdForProgress) {
+                $query->leftJoin('lesson_student', function ($join) use ($studentIdForProgress) {
                     $join->on('lessons.id', '=', 'lesson_student.lesson_id')
-                        ->where('lesson_student.idnumber', '=', $user->idnumber);
+                         ->where('lesson_student.idnumber', '=', $studentIdForProgress);
                 })
-                    ->addSelect('lessons.*', 'lesson_student.progress');
+                ->addSelect('lessons.*', 'lesson_student.progress');
             }
 
             $paginated = $query->paginate($perPage);
@@ -174,7 +198,9 @@ class LessonController extends Controller
                 'last_page' => $paginated->lastPage(),
                 'lessons' => $paginated->items(),
             ], 200);
+
         } catch (Exception $e) {
+            // Return a generic error message in production, or a detailed one in debug mode.
             return response()->json([
                 'message' => 'An error occurred while fetching lessons.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Server error'

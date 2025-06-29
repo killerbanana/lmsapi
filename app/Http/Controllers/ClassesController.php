@@ -13,6 +13,7 @@ use App\Models\Classes;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TeacherClass;
 use App\Models\StudentClass;
+use App\Models\ParentModel;
 use Kreait\Firebase\Factory;
 
 class ClassesController extends Controller
@@ -27,23 +28,36 @@ class ClassesController extends Controller
         $searchClassName = $request->query('class_name');
 
         // Allow only these user types
-        if (!in_array($user->usertype, ['Administrator', 'Student', 'Teacher'])) {
+        if (!in_array($user->usertype, ['Administrator', 'Student', 'Teacher', 'Parent'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         if ($type === 'student') {
             $query = StudentClass::query()->with('class');
 
-            if (!in_array($user->usertype, ['Administrator', 'Student', 'Teacher'])) {
-                return response()->json(['message' => 'Unauthorized.'], 403);
-            }
-
-            // Only own classes if Student
+            // Student can only view their own classes
             if ($user->usertype === 'Student') {
                 $query->where('idnumber', $user->idnumber);
             }
+            // Parent can only view their linked child's classes
+            elseif ($user->usertype === 'Parent') {
+                // Find the parent's linked student ID
+                $parent = ParentModel::where('idnumber', $user->idnumber)->first();
 
-            // Admin can view all student classes
+                if (!$parent || !$parent->linked_id) {
+                    return response()->json(['message' => 'No linked student found for this parent.'], 404);
+                }
+                
+                // Filter classes by the linked student's ID number
+                $query->where('idnumber', $parent->linked_id);
+            }
+            // Administrator can search and view all student classes
+            elseif ($user->usertype !== 'Administrator') {
+                // If usertype is not Admin, Student, or Parent, deny access.
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+
+            // Apply search filters for all authorized roles
             if ($searchClassId) {
                 $query->whereHas('class', function ($q) use ($searchClassId) {
                     $q->where('class_id', $searchClassId);
@@ -68,17 +82,19 @@ class ClassesController extends Controller
         }
 
         if ($type === 'teacher') {
-            $query = TeacherClass::query()->with('class');
-
+            // Only Administrator and Teacher can view teacher classes
             if (!in_array($user->usertype, ['Administrator', 'Teacher'])) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
-            // Only own classes if Teacher
+            
+            $query = TeacherClass::query()->with('class');
+
+            // Teacher can only view their own classes
             if ($user->usertype === 'Teacher') {
                 $query->where('idnumber', $user->idnumber);
             }
 
-            // Admin can view all teacher classes
+            // Admin can view all teacher classes and apply filters
             if ($searchClassId) {
                 $query->whereHas('class', function ($q) use ($searchClassId) {
                     $q->where('class_id', $searchClassId);
