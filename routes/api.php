@@ -167,7 +167,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/section/quiz-assessments/{quizAssessmentId}/grade/{studentIdnumber}', [SectionController::class, 'gradeStudentQuiz'])
     ->middleware('check.ability:score-quiz-submission');
 
-    Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('check.ability:post-announcement');
+    Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('check.ability:get-announcement-all');
 
     Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('check.ability:post-announcement');
 

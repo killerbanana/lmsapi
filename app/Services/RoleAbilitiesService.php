@@ -38,6 +38,7 @@ class RoleAbilitiesService
                 'view-lessons',
                 'update-announcement',
                 'create-section-assessment',
+                'get-announcement-all',
                 'grade-dropbox-submission',
                 'view-classes',
                 'update-lessons',
@@ -50,8 +51,8 @@ class RoleAbilitiesService
                 'update-lesson-progress',
                 'update-section-progress'
             ],
-            'Student' => ['submit-dropbox-assessment', 'view-teachers', 'view-parents', 'view-dropbox-submissions', 'view-own-attendance', 'update-section-progress', 'changePassword', 'section-student', 'section-student-linked', 'submit-quiz-answer', 'section-student', 'get-announcement',  'view-grades', 'update-profile', 'answer-module', 'view-classes', 'view-lessons', 'view-section', 'update-section', 'view-classes-all', 'update-lesson-progress', 'update-section-progress'],
-            'Parent' => ['view-teachers', 'view-own-attendance', 'section-student-linked', 'view-parents', 'changePassword', 'read-only', 'view-students-parent', 'get-announcement'],
+            'Student' => ['get-announcement-all', 'submit-dropbox-assessment', 'view-teachers', 'view-parents', 'view-dropbox-submissions', 'view-own-attendance', 'update-section-progress', 'changePassword', 'section-student', 'section-student-linked', 'submit-quiz-answer', 'section-student', 'get-announcement',  'view-grades', 'update-profile', 'answer-module', 'view-classes', 'view-lessons', 'view-section', 'update-section', 'view-classes-all', 'update-lesson-progress', 'update-section-progress'],
+            'Parent' => ['view-lessons', 'get-announcement-all', 'view-teachers', 'view-own-attendance', 'section-student-linked', 'view-parents', 'changePassword', 'read-only', 'view-students-parent', 'get-announcement', 'view-classes-all'],
         ];
 
         // Return the abilities for the given role, or default to 'read-only'
