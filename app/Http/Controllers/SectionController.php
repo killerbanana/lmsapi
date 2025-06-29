@@ -470,15 +470,15 @@ class SectionController extends Controller
 
         $allStudentIdnumbers = DB::table('lesson_student')->where('lesson_id', $section->lesson_id)->pluck('idnumber');
 
-        $sectionProgressData = $allStudentIdnumbers->map(fn($idnumber) => [
-            'idnumber' => $idnumber,
-            'section_id' => $section->id,
-            'status' => 'not_started',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ])->toArray();
+        // $sectionProgressData = $allStudentIdnumbers->map(fn($idnumber) => [
+        //     'idnumber' => $idnumber,
+        //     'section_id' => $section->id,
+        //     'status' => 'not_started',
+        //     'created_at' => now(),
+        //     'updated_at' => now(),
+        // ])->toArray();
 
-        DB::table('section_progress')->insert($sectionProgressData);
+        // DB::table('section_progress')->insert($sectionProgressData);
 
         // 📊 Track section progress
         $lessonStudentIds = DB::table('lesson_student')->where('lesson_id', $section->lesson_id)->pluck('idnumber');
