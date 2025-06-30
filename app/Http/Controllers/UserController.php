@@ -106,7 +106,7 @@ class UserController extends Controller
             ]);
 
             // Send welcome email to student
-            $this->sendWelcomeEmail($request->email, $request->username, $studentPassword);
+            $this->sendWelcomeEmail($request->email, $studentPassword);
 
             Students::updateOrCreate(
                 ['idnumber' => $studentUser->idnumber],
@@ -141,7 +141,7 @@ class UserController extends Controller
             ]);
             
             // Send welcome email to guardian
-            $this->sendWelcomeEmail($request->primary_email, $guardianId, $guardianPassword);
+            $this->sendWelcomeEmail($request->primary_email, $guardianPassword);
 
             ParentModel::create([
                 'idnumber' => $guardianId,
@@ -167,7 +167,7 @@ class UserController extends Controller
         }
     }
 
-    public function sendWelcomeEmail($emailTo, $username, $password)
+    public function sendWelcomeEmail($emailTo, $password)
     {
         $apiKey = config('services.sendgrid.api_key');
         $sendgrid = new SendGrid($apiKey);
@@ -180,7 +180,7 @@ class UserController extends Controller
         $plainTextContent = "Hello,\n\n"
             . "Welcome to the Learning Management System. Your account has been created.\n\n"
             . "Here are your login credentials:\n"
-            . "Username: {$username}\n"
+            . "Email: {$emailTo}\n"
             . "Password: {$password}\n\n"
             . "Please change your password after your first login.\n\n"
             . "Best regards,\n"
