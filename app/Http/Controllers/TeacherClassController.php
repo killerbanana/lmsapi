@@ -16,38 +16,27 @@ class TeacherClassController extends Controller
     public function assignTeacherToClass(Request $request)
     {
         $validated = $request->validate([
-            'idnumber' => 'required|string|max:255',
-            'class_id' => 'required|string|max:255',
+            'idnumber' => 'required|string|exists:teachers,idnumber',
+            'class_id' => 'required|string|exists:classes,class_id',
             'status' => 'nullable|in:active,inactive',
         ]);
 
-        $teacher_exists = Teachers::where('idnumber', $validated['idnumber'])->exists();
-        if (!$teacher_exists) {
-            return response()->json(['message' => 'Teacher does not exist.'], 404);
+        // Check if the class already has a teacher assigned
+        $existingAssignment = TeacherClass::where('class_id', $validated['class_id'])->first();
+
+        if ($existingAssignment) {
+            return response()->json(['message' => 'A teacher is already assigned to this class. Only one teacher per class is allowed.'], 409);
         }
 
-        $class_exists = Classes::where('class_id', $validated['class_id'])->exists();
-        if (!$class_exists) {
-            return response()->json(['message' => 'Class does not exist.'], 404);
-        }
-
-        $exists = TeacherClass::where('idnumber', $validated['idnumber'])
-            ->where('class_id', $validated['class_id'])
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'Teacher already added in this class.'], 409);
-        }
-
-        // // Add student to class
+        // Add teacher to class
         $teacherClass = TeacherClass::create($validated);
 
         return response()->json([
-            'message' => 'Teacher successfully added to class.',
+            'message' => 'Teacher successfully assigned to class.',
             'data' => $teacherClass
         ], 201);
     }
-
+    
     public function getAllClass(Request $request)
     {
         $user = Auth::user();
