@@ -408,7 +408,7 @@ class UserController extends Controller
         ]);
 
         // Send welcome email to teacher
-        $this->sendWelcomeEmail($request->email, $request->username, $password);
+        $this->sendWelcomeEmail($request->email, $password);
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
