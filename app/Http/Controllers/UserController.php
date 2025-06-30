@@ -383,7 +383,6 @@ class UserController extends Controller
             'username' => 'required|string|unique:users,username',
             'idnumber' => 'required|string|unique:users,idnumber',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
             'firstname' => 'nullable|string',
             'lastname' => 'nullable|string',
             'phone' => 'nullable|string',
@@ -398,14 +397,18 @@ class UserController extends Controller
         }
 
         $url = null;
+        $password = Str::random(8); // Generate a random password
 
         $user = User::create([
             'username' => $request->username,
             'idnumber' => $request->idnumber,
             'email' => $request->email,
-            'password' => bcrypt($request->password),
+            'password' => bcrypt($password),
             'usertype' => 'Teacher',
         ]);
+
+        // Send welcome email to teacher
+        $this->sendWelcomeEmail($request->email, $request->username, $password);
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
