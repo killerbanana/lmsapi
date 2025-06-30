@@ -73,10 +73,7 @@ class otpController extends Controller
 
 
         $apiKey = config('services.sendgrid.api_key');
-
-        // if (!$apiKey) {
-        //     return response()->json(['error' => 'SendGrid API key not set']);
-        // }
+        
         Cache::put("otp_{$emailTo}", $otp, now()->addMinutes(5));
 
         $sendgrid = new \SendGrid($apiKey);

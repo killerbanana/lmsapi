@@ -17,6 +17,10 @@ use App\Models\TeacherClass;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use App\Services\OtpEmailService;
+use SendGrid;
+use SendGrid\Mail\Mail;
 
 class UserController extends Controller
 {
@@ -48,13 +52,10 @@ class UserController extends Controller
     {
         $url = null;
 
-        // --- VALIDATION ---
-        // Added 'email', 'unique:users,email', and 'different:email' rules for primary_email.
         $validator = Validator::make($request->all(), [
             'username' => 'required|string|unique:users,username',
             'idnumber' => 'required|string|unique:users,idnumber',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
             'section' => 'nullable|string',
             'firstname' => 'nullable|string',
             'lastname' => 'nullable|string',
@@ -68,7 +69,7 @@ class UserController extends Controller
             'mothercontact' => 'nullable|string',
             'guardian_contact' => 'nullable|string',
             'guardian_name' => 'nullable|string',
-            'photo' => 'nullable|file|image|max:5120', // 5MB max
+            'photo' => 'nullable|file|image|max:5120',
             'primary_email' => 'required|email|unique:users,email|different:email',
         ]);
 
@@ -76,42 +77,38 @@ class UserController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        // --- FIREBASE PHOTO UPLOAD ---
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
 
-            // It's recommended to handle Firebase credentials securely, e.g., via environment variables.
             $firebase = (new Factory)->withServiceAccount(storage_path('firebase_credentials.json'));
             $bucket = $firebase->createStorage()->getBucket();
 
             $firebaseFilePath = 'users/photo_' . uniqid() . '_' . $file->getClientOriginalName();
 
-            // Upload the file to Firebase Storage
             $bucket->upload(
                 fopen($file->getRealPath(), 'r'),
                 ['name' => $firebaseFilePath]
             );
 
-            // Construct the public URL for the uploaded file
             $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
         }
 
-        // Start DB transaction to ensure all or no records are created.
         DB::beginTransaction();
 
         try {
-            // --- CREATE STUDENT USER ---
+            $studentPassword = Str::random(8); // Generate random password for student
             $studentUser = User::create([
                 'username' => $request->username,
                 'idnumber' => $request->idnumber,
                 'email' => $request->email,
-                'password' => bcrypt($request->password),
+                'password' => bcrypt($studentPassword),
                 'usertype' => 'Student',
             ]);
 
-            // --- STORE STUDENT'S PERSONAL INFO ---
-            // Use updateOrCreate to either create a new student record or update an existing one based on idnumber.
-            $personalInfo = Students::updateOrCreate(
+            // Send welcome email to student
+            $this->sendWelcomeEmail($request->email, $request->username, $studentPassword);
+
+            Students::updateOrCreate(
                 ['idnumber' => $studentUser->idnumber],
                 [
                     'section' => $request->section,
@@ -132,47 +129,69 @@ class UserController extends Controller
                 ]
             );
 
-            // --- CREATE GUARDIAN USER ---
-            // Create a unique ID for the guardian linked to the student.
             $guardianId = $studentUser->idnumber . '-guardian';
+            $guardianPassword = Str::random(8); // Generate random password for guardian
 
             User::create([
                 'username' => $guardianId,
                 'idnumber' => $guardianId,
                 'email' => $request->primary_email,
-                'password' => bcrypt('iacparent'), // Use a more secure default password or a generated one.
+                'password' => bcrypt($guardianPassword),
                 'usertype' => 'Parent',
             ]);
+            
+            // Send welcome email to guardian
+            $this->sendWelcomeEmail($request->primary_email, $guardianId, $guardianPassword);
 
-            // CORRECTED CODE
             ParentModel::create([
                 'idnumber' => $guardianId,
                 'firstname' => $request->mothername ?? '',
-                'lastname' => $request->lastname ?? '', // <-- FIXED
+                'lastname' => $request->lastname ?? '',
                 'email' => $request->primary_email,
-                'phone' => $request->mothercontact ?? '', // Added safe default
+                'phone' => $request->mothercontact ?? '',
                 'linked_id' => $studentUser->idnumber,
                 'guardian_name' => $request->guardian_name,
                 'photo' => $url,
             ]);
 
-
-
-            // The rest of your commented-out parent/mother logic can be placed here if needed.
-
-            // If everything is successful, commit the transaction.
             DB::commit();
 
             return response()->json([
                 'message' => 'Student and guardian accounts created successfully!',
-                'idnumber' => $personalInfo->idnumber,
+                'idnumber' => $studentUser->idnumber,
             ], 201);
         } catch (\Exception $e) {
-            // If any error occurs, roll back the transaction.
             DB::rollBack();
-            // Log the exception for debugging.
-            \Log::error('Student Registration Failed: ' . $e->getMessage());
+            Log::error('Student Registration Failed: ' . $e->getMessage());
             return response()->json(['error' => 'Registration failed. Please try again later.', 'details' => $e->getMessage()], 500);
+        }
+    }
+
+    public function sendWelcomeEmail($emailTo, $username, $password)
+    {
+        $apiKey = config('services.sendgrid.api_key');
+        $sendgrid = new SendGrid($apiKey);
+        $email = new Mail();
+
+        $email->setFrom("rosqueta.joshua@gmail.com", "LMS Admin");
+        $email->setSubject("Welcome to LMS!");
+        $email->addTo($emailTo, 'user');
+
+        $plainTextContent = "Hello,\n\n"
+            . "Welcome to the Learning Management System. Your account has been created.\n\n"
+            . "Here are your login credentials:\n"
+            . "Username: {$username}\n"
+            . "Password: {$password}\n\n"
+            . "Please change your password after your first login.\n\n"
+            . "Best regards,\n"
+            . "LMS Admin Team";
+
+        $email->addContent("text/plain", $plainTextContent);
+
+        try {
+            $sendgrid->send($email);
+        } catch (\Exception $e) {
+            Log::error('SendGrid Exception: ' . $e->getMessage());
         }
     }
 
