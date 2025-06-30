@@ -36,7 +36,37 @@ class TeacherClassController extends Controller
             'data' => $teacherClass
         ], 201);
     }
-    
+
+    public function changeAssignedTeacher(Request $request)
+    {
+        $validated = $request->validate([
+            'class_id' => 'required|string|exists:class_teachers,class_id',
+            'idnumber' => 'required|string|exists:teachers,idnumber',
+        ]);
+
+        // Find the existing assignment
+        $assignment = TeacherClass::where('class_id', $validated['class_id'])->first();
+
+        // Add a check to ensure an assignment exists for the class
+        if (!$assignment) {
+            return response()->json(['message' => 'No assignment found for the given class.'], 404);
+        }
+
+        // Check if the new teacher is the same as the currently assigned one
+        if ($assignment->idnumber === $validated['idnumber']) {
+            return response()->json(['message' => 'This teacher is already assigned to the class.'], 409);
+        }
+
+        // Update the teacher's idnumber for the class
+        $assignment->idnumber = $validated['idnumber'];
+        $assignment->save();
+
+        return response()->json([
+            'message' => 'Assigned teacher has been changed successfully.',
+            'data' => $assignment
+        ], 200);
+    }
+
     public function getAllClass(Request $request)
     {
         $user = Auth::user();
