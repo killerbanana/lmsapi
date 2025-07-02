@@ -280,21 +280,20 @@ class UserController extends Controller
     public function updateStudentInfo(Request $request, $idnumber)
     {
         // Validate input
-        $url = null;
         $validator = Validator::make($request->all(), [
-            'firstname' => 'nullable|string',
-            'lastname' => 'nullable|string',
-            'phone' => 'nullable|string',
+            'firstname' => 'nullable|string|max:255',
+            'lastname' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:20',
             'gender' => 'nullable|in:male,female,other',
             'birthdate' => 'nullable|date',
             'address' => 'nullable|string',
-            'fathername' => 'nullable|string',
-            'fathercontact' => 'nullable|string',
-            'mothername' => 'nullable|string',
-            'mothercontact' => 'nullable|string',
+            'fathername' => 'nullable|string|max:255',
+            'fathercontact' => 'nullable|string|max:20',
+            'mothername' => 'nullable|string|max:255',
+            'mothercontact' => 'nullable|string|max:20',
             'status' => 'nullable|in:active,inactive,blocked',
-            'guardian_contact' => 'nullable|string',
-            'guardian_name' => 'nullable|string',
+            'guardian_contact' => 'nullable|string|max:20',
+            'guardian_name' => 'nullable|string|max:255',
             'photo' => 'nullable|file|image|max:5120', // optional photo
         ]);
 
@@ -302,14 +301,22 @@ class UserController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        // Find the student by idnumber
+        // Find the student by idnumber, or fail
         $student = Students::where('idnumber', $idnumber)->first();
 
         if (!$student) {
             return response()->json(['message' => 'Student not found.'], 404);
         }
 
-        // Handle photo upload if exists
+        // Get the validated data
+        $validatedData = $validator->validated();
+        
+        // Use array_filter to remove any keys with a null value
+        $updateData = array_filter($validatedData, function ($value) {
+            return !is_null($value);
+        });
+
+        // Handle photo upload if a new photo exists
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
 
@@ -323,32 +330,19 @@ class UserController extends Controller
                 ['name' => $firebaseFilePath]
             );
 
-            $url = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
+            // Add the new photo URL to the data to be updated
+            $updateData['photo'] = "https://firebasestorage.googleapis.com/v0/b/" . $bucket->name() . "/o/" . urlencode($firebaseFilePath) . "?alt=media";
         }
 
-        Students::where('idnumber', $idnumber)->update([
-            'firstname' =>  $request->firstname,
-            'lastname' => $request->lastname,
-            'phone' => $request->phone,
-            'gender' => $request->gender,
-            'birthdate' => $request->birthdate,
-            'address' => $request->address,
-            'fathername' => $request->fathername,
-            'fathercontact' => $request->fathercontact,
-            'mothername' => $request->mothername,
-            'mothercontact' => $request->mothercontact,
-            'guardian_contact' => $request->guardian_contact,
-            'guardian_name' => $request->guardian_name,
-            'photo' => $url
+        // Proceed with the update only if there is data to update
+        if (!empty($updateData)) {
+            $student->update($updateData);
+        }
+
+        return response()->json([
+            'message' => 'Student info updated successfully.',
+            'data' => $student->fresh(), // Return the updated student data
         ]);
-
-        if ($student->save()) {
-            return response()->json([
-                'message' => 'Student info updated successfully.',
-            ]);
-        } else {
-            return response()->json(['message' => 'Failed to update student.'], 500);
-        }
     }
 
 
