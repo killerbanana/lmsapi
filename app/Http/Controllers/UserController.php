@@ -129,8 +129,8 @@ class UserController extends Controller
                 ]
             );
 
-            $guardianId = $studentUser->idnumber . '-guardian';
-            $guardianPassword = Str::random(8); // Generate random password for guardian
+            $guardianId = $studentUser->idnumber . '-parent';
+            $guardianPassword = Str::random(8);
 
             User::create([
                 'username' => $guardianId,
@@ -759,7 +759,7 @@ class UserController extends Controller
 
     public function getTeachers(Request $request)
     {
-        $perPage = $request->query('perPage', 10);  // default 10 per page
+        $perPage = $request->query('perPage', 10);
         $idnumber = $request->query('idnumber');
         $firstname = $request->query('firstname');
         $lastname = $request->query('lastname');
@@ -785,7 +785,23 @@ class UserController extends Controller
             'per_page' => $paginated->perPage(),
             'current_page' => $paginated->currentPage(),
             'last_page' => $paginated->lastPage(),
-            'teachers' => $paginated->items(),
+            'teachers' => $paginated->getCollection()->transform(function ($teacher) {
+                return [
+                    'id' => $teacher->id,
+                    'idnumber' => $teacher->idnumber,
+                    'firstname' => $teacher->firstname,
+                    'lastname' => $teacher->lastname,
+                    'phone' => $teacher->phone,
+                    'gender' => $teacher->gender,
+                    'birthdate' => $teacher->birthdate,
+                    'address' => $teacher->address,
+                    'photo' => $teacher->photo,
+                    'email' => $teacher->email,
+                    'created_at' => $teacher->created_at,
+                    'updated_at' => $teacher->updated_at,
+                    'username' => $teacher->user ? $teacher->user->username : null,
+                ];
+            }),
         ], 200);
     }
 
