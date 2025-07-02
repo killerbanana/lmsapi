@@ -74,7 +74,7 @@ class AnnouncementController extends Controller
         $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'body' => 'sometimes|required|string',
-            'audience' => 'sometimes|in:All,Students,Teachers,Admins',
+            'audience' => 'sometimes|in:All,Students,Teachers,Admins,Parents',
             'published_at' => 'nullable|date',
             'status' => 'nullable|in:active,inactive',
         ]);
