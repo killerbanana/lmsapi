@@ -27,7 +27,6 @@ class ClassesController extends Controller
         $searchClassId = $request->query('class_id');
         $searchClassName = $request->query('class_name');
 
-        // Allow only these user types
         if (!in_array($user->usertype, ['Administrator', 'Student', 'Teacher', 'Parent'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -35,50 +34,43 @@ class ClassesController extends Controller
         if ($type === 'student') {
             $query = StudentClass::query()->with('class');
 
-            // Student can only view their own classes
             if ($user->usertype === 'Student') {
                 $query->where('idnumber', $user->idnumber);
             }
-            // Parent can only view their linked child's classes
             elseif ($user->usertype === 'Parent') {
-                // Find the parent's linked student ID
                 $parent = ParentModel::where('idnumber', $user->idnumber)->first();
 
                 if (!$parent || !$parent->linked_id) {
                     return response()->json(['message' => 'No linked student found for this parent.'], 404);
                 }
                 
-                // Filter classes by the linked student's ID number
                 $query->where('idnumber', $parent->linked_id);
             }
-            // Administrator can search and view all student classes
-            elseif ($user->usertype !== 'Administrator') {
-                // If usertype is not Admin, Student, or Parent, deny access.
-                return response()->json(['message' => 'Unauthorized.'], 403);
+
+            if ($user->usertype === 'Administrator' || $user->usertype === 'Teacher') {
+            
+                if ($searchClassId) {
+                    $query->whereHas('class', function ($q) use ($searchClassId) {
+                        $q->where('class_id', $searchClassId);
+                    });
+                }
+
+                if ($searchClassName) {
+                    $query->whereHas('class', function ($q) use ($searchClassName) {
+                        $q->where('class_name', 'LIKE', '%' . $searchClassName . '%');
+                    });
+                }
+
+                $paginated = $query->paginate($perPage);
+
+                return response()->json([
+                    'total' => $paginated->total(),
+                    'per_page' => $paginated->perPage(),
+                    'current_page' => $paginated->currentPage(),
+                    'last_page' => $paginated->lastPage(),
+                    'classes' => $paginated->items(),
+                ], 200);
             }
-
-            // Apply search filters for all authorized roles
-            if ($searchClassId) {
-                $query->whereHas('class', function ($q) use ($searchClassId) {
-                    $q->where('class_id', $searchClassId);
-                });
-            }
-
-            if ($searchClassName) {
-                $query->whereHas('class', function ($q) use ($searchClassName) {
-                    $q->where('class_name', 'LIKE', '%' . $searchClassName . '%');
-                });
-            }
-
-            $paginated = $query->paginate($perPage);
-
-            return response()->json([
-                'total' => $paginated->total(),
-                'per_page' => $paginated->perPage(),
-                'current_page' => $paginated->currentPage(),
-                'last_page' => $paginated->lastPage(),
-                'classes' => $paginated->items(),
-            ], 200);
         }
 
         if ($type === 'teacher') {
