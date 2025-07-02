@@ -126,6 +126,7 @@ class UserController extends Controller
                     'photo' => $url,
                     'guardian_contact' => $request->guardian_contact,
                     'guardian_name' => $request->guardian_name,
+                    'primary_email' => $request->primary_email,
                 ]
             );
 

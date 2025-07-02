@@ -28,6 +28,7 @@ return new class extends Migration
             $table->string('mothercontact')->nullable();
             $table->string('guardian_contact')->nullable();
             $table->string('guardian_name')->nullable();
+            $table->string('primary_email')->nullable();
             $table->text('photo')->nullable();
             $table->enum('status', ['active', 'inactive', 'blocked'])->default('active');
             $table->timestamps();
