@@ -10,6 +10,7 @@ class RoleAbilitiesService
         $roleAbilities = [
             'Administrator' => ['*'],
             'Teacher' => [
+                'view-teachers',
                 'delete-section',
                 'grade-dropbox-submission',
                 'view-dropbox-submissions',
