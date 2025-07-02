@@ -795,6 +795,7 @@ class UserController extends Controller
                     'created_at' => $teacher->created_at,
                     'updated_at' => $teacher->updated_at,
                     'username' => $teacher->user ? $teacher->user->username : null,
+                    'status' => $teacher->user ? $teacher->user->status : null
                 ];
             }),
         ], 200);
