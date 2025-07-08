@@ -23,7 +23,7 @@ class ClassesController extends Controller
         $user = Auth::user();
 
         $perPage = $request->query('perPage', 10);
-        $type = $request->query('type', 'student'); // default to 'student'
+        $type = $request->query('type', 'student');
         $searchClassId = $request->query('class_id');
         $searchClassName = $request->query('class_name');
 
@@ -34,9 +34,11 @@ class ClassesController extends Controller
         if ($type === 'student') {
             $query = StudentClass::query()->with('class');
 
+            // --- Logic for Student ---
             if ($user->usertype === 'Student') {
                 $query->where('idnumber', $user->idnumber);
             }
+            // --- Logic for Parent ---
             elseif ($user->usertype === 'Parent') {
                 $parent = ParentModel::where('idnumber', $user->idnumber)->first();
 
@@ -46,9 +48,9 @@ class ClassesController extends Controller
                 
                 $query->where('idnumber', $parent->linked_id);
             }
-
-            if ($user->usertype === 'Administrator' || $user->usertype === 'Teacher') {
-            
+            // --- Logic for Admin/Teacher ---
+            // UPDATED: Changed from 'if' to 'elseif' for cleaner logic
+            elseif (in_array($user->usertype, ['Administrator', 'Teacher'])) {
                 if ($searchClassId) {
                     $query->whereHas('class', function ($q) use ($searchClassId) {
                         $q->where('class_id', $searchClassId);
@@ -60,33 +62,34 @@ class ClassesController extends Controller
                         $q->where('class_name', 'LIKE', '%' . $searchClassName . '%');
                     });
                 }
-
-                $paginated = $query->paginate($perPage);
-
-                return response()->json([
-                    'total' => $paginated->total(),
-                    'per_page' => $paginated->perPage(),
-                    'current_page' => $paginated->currentPage(),
-                    'last_page' => $paginated->lastPage(),
-                    'classes' => $paginated->items(),
-                ], 200);
             }
+            
+            // --- MOVED: Pagination and Response Logic ---
+            // This block is now outside the role-specific conditionals and will run
+            // for any user type that falls under the 'student' request type.
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                // To ensure consistency, let's rename this key to 'data' or 'items'
+                'classes' => $paginated->items(),
+            ], 200);
         }
 
         if ($type === 'teacher') {
-            // Only Administrator and Teacher can view teacher classes
             if (!in_array($user->usertype, ['Administrator', 'Teacher'])) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
             
             $query = TeacherClass::query()->with('class');
 
-            // Teacher can only view their own classes
             if ($user->usertype === 'Teacher') {
                 $query->where('idnumber', $user->idnumber);
             }
 
-            // Admin can view all teacher classes and apply filters
             if ($searchClassId) {
                 $query->whereHas('class', function ($q) use ($searchClassId) {
                     $q->where('class_id', $searchClassId);
