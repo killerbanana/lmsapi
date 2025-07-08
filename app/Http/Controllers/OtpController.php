@@ -31,7 +31,7 @@ class otpController extends Controller
         $sendgrid = new \SendGrid($apiKey);
 
         $emailMessage = new \SendGrid\Mail\Mail();
-        $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS Admin");
+        $emailMessage->setFrom("jaysonviernes@gmail.com", "iACLMS-admin");
         $emailMessage->setSubject("Password Change Request");
         $emailMessage->addTo($emailTo, $name);
 
@@ -79,7 +79,7 @@ class otpController extends Controller
         $sendgrid = new \SendGrid($apiKey);
 
         $emailMessage = new \SendGrid\Mail\Mail();
-        $emailMessage->setFrom("rosqueta.joshua@gmail.com", "LMS Admin");
+        $emailMessage->setFrom("jaysonviernes@gmail.com", "iACLMS-admin");
         $emailMessage->setSubject("Forgot Password Request");
         $emailMessage->addTo($emailTo, 'user');
 
