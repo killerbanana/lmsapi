@@ -174,7 +174,7 @@ class UserController extends Controller
         $sendgrid = new SendGrid($apiKey);
         $email = new Mail();
 
-        $email->setFrom("rosqueta.joshua@gmail.com", "LMS Admin");
+        $email->setFrom("jaysonviernes@gmail.com", "iACLMS-admin");
         $email->setSubject("Welcome to LMS!");
         $email->addTo($emailTo, 'user');
 
