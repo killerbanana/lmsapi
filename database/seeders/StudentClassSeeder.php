@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
 use Faker\Factory as Faker;
+use Illuminate\Http\Client\RequestException;
 
 class StudentClassSeeder extends Seeder
 {
@@ -15,34 +16,41 @@ class StudentClassSeeder extends Seeder
     {
         $faker = Faker::create();
         $classIds = DB::table('classes')->pluck('class_id')->toArray();
-        $total = 10;
+        $total = 50;
 
-        // Fetch random user photos
-        $response = Http::get('https://randomuser.me/api/', [
-            'results' => $total,
-            'inc' => 'picture,gender',
-        ]);
-
-        if (!$response->ok()) {
-            $this->command->error('Failed to fetch student photos.');
+        if (empty($classIds)) {
+            $this->command->error('No classes found in the database. Please seed classes first.');
             return;
         }
 
-        $randomUsers = collect($response->json('results'));
+        try {
+            // Fetch random user data including picture, gender, name, and location
+            $response = Http::get('https://randomuser.me/api/', [
+                'results' => $total,
+                'inc' => 'picture,gender,name,location,phone,login',
+            ]);
+            $response->throw(); // Throw an exception for 4xx or 5xx status codes
+            $randomUsers = collect($response->json('results'));
+        } catch (RequestException $e) {
+            $this->command->error('Failed to fetch student photos: ' . $e->getMessage());
+            return;
+        }
 
-        for ($i = 1; $i <= $total; $i++) {
-            $idnumber = 'STD' . str_pad($i, 3, '0', STR_PAD_LEFT);
-            $email = "student{$i}@example.com";
-            $user = $randomUsers[$i - 1];
-            $photo = $user['picture']['large'];
+        for ($i = 0; $i < $total; $i++) {
+            $user = $randomUsers[$i];
+            $studentIdNumber = 'STD' . str_pad($i + 1, 3, '0', STR_PAD_LEFT);
+            $studentEmail = "student" . ($i + 1) . "@example.com";
+            $studentFirstName = $user['name']['first'];
+            $studentLastName = $user['name']['last'];
             $gender = $user['gender'];
+            $photo = $user['picture']['large'];
 
-            // Create student user
+            // 1. Create Student User
             DB::table('users')->insert([
-                'idnumber' => $idnumber,
-                'username' => "student{$i}",
+                'idnumber' => $studentIdNumber,
+                'username' => $user['login']['username'],
                 'usertype' => 'Student',
-                'email' => $email,
+                'email' => $studentEmail,
                 'email_verified_at' => now(),
                 'password' => Hash::make('student123'),
                 'remember_token' => Str::random(10),
@@ -50,80 +58,58 @@ class StudentClassSeeder extends Seeder
                 'updated_at' => now(),
             ]);
 
-            // Create student profile
+            // 2. Create Student Profile
             DB::table('students')->insert([
-                'idnumber'         => $idnumber,
-                'email'            => $email,
-                'firstname'        => $faker->firstName($gender),
-                'lastname'         => $faker->lastName,
-                'gender'           => $gender,
-                'birthdate'        => $faker->date('Y-m-d', '-15 years'),
-                'phone'            => "09166969703",
-                'address'          => $faker->address,
-                'fathername'       => 'Father of ' . $i,
-                'fathercontact'    => $faker->phoneNumber,
-                'mothername'       => 'Mother of ' . $i,
-                'mothercontact'    => $faker->phoneNumber,
+                'idnumber' => $studentIdNumber,
+                'email' => $studentEmail,
+                'firstname' => $studentFirstName,
+                'lastname' => $studentLastName,
+                'gender' => $gender,
+                'birthdate' => $faker->date('Y-m-d', '-15 years'),
+                'phone' => $user['phone'],
+                'address' => "{$user['location']['street']['number']} {$user['location']['street']['name']}, {$user['location']['city']}, {$user['location']['state']}, {$user['location']['country']}",
+                'fathername' => $faker->name('male'),
+                'fathercontact' => $faker->phoneNumber,
+                'mothername' => $faker->name('female'),
+                'mothercontact' => $faker->phoneNumber,
+                'guardian_name' => $faker->name,
                 'guardian_contact' => $faker->phoneNumber,
-                'photo'            => $photo,
-                'status'           => 'active',
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'photo' => $photo,
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
-            // Parents (Father)
-            $fatherId = $idnumber . '-father';
+            // 3. Create Parent User and Profile
+            $parentIdNumber = $studentIdNumber . '-parent';
             DB::table('users')->insert([
-                'idnumber' => $fatherId,
-                'username' => $fatherId,
+                'idnumber' => $parentIdNumber,
+                'username' => $parentIdNumber,
                 'usertype' => 'Parent',
-                'email' => $fatherId . '@example.com',
+                'email' => $parentIdNumber . '@example.com',
                 'email_verified_at' => now(),
                 'password' => Hash::make('parent123'),
                 'remember_token' => Str::random(10),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
             DB::table('parent_tbl')->insert([
-                'idnumber' => $fatherId,
-                'linked_id' => $idnumber,
-                'firstname' => 'Father of',
-                'lastname' => $i,
-                'email' => $fatherId . '@example.com',
+                'idnumber' => $parentIdNumber,
+                'linked_id' => $studentIdNumber,
+                'firstname' => $faker->firstName,
+                'lastname' => $studentLastName, // Using student's last name for consistency
+                'email' => $parentIdNumber . '@example.com',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-            // Parents (Mother)
-            $motherId = $idnumber . '-mother';
-            DB::table('users')->insert([
-                'idnumber' => $motherId,
-                'username' => $motherId,
-                'usertype' => 'Parent',
-                'email' => $motherId . '@example.com',
-                'email_verified_at' => now(),
-                'password' => Hash::make('parent123'),
-                'remember_token' => Str::random(10),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            DB::table('parent_tbl')->insert([
-                'idnumber' => $motherId,
-                'linked_id' => $idnumber,
-                'firstname' => 'Mother of',
-                'lastname' => $i,
-                'email' => $motherId . '@example.com',
-                'status' => 'active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Assign student to 2 random classes
-            $assignedClassIds = collect($classIds)->random(min(2, count($classIds)));
+            // 4. Assign student to up to 2 random classes
+            $assignedClassIds = collect($classIds)->random(min(2, count($classIds)))->all();
             foreach ($assignedClassIds as $classId) {
                 DB::table('class_students')->insert([
-                    'idnumber' => $idnumber,
+                    'idnumber' => $studentIdNumber,
                     'class_id' => $classId,
                     'status' => 'active',
                     'created_at' => now(),

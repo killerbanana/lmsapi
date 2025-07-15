@@ -192,6 +192,13 @@ class UserController extends Controller
         try {
             $sendgrid->send($email);
         } catch (\Exception $e) {
+            Log::create([
+                'level' => 'error',
+                'message' => 'Failed to send email',
+                'context' => [
+                    'error' => $e->getMessage(),
+                ]
+            ]);
             Log::error('SendGrid Exception: ' . $e->getMessage());
         }
     }
@@ -861,6 +868,7 @@ class UserController extends Controller
             return response()->json(['logged_in' => true, 'user' => Auth::user(), 'personal_info' => $personalInfo]);
         }
 
+        // Example of logging an error
         return response()->json(['logged_in' => false], 401);
     }
 }
