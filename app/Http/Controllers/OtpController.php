@@ -55,6 +55,13 @@ class otpController extends Controller
                 'responseBody' => $response->body(),
             ]);
         } catch (\Exception $e) {
+            Log::create([
+                'level' => 'error',
+                'message' => 'Failed to send email',
+                'context' => [
+                    'error' => $e->getMessage(),
+                ]
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'SendGrid Exception: ' . $e->getMessage(),
@@ -103,6 +110,13 @@ class otpController extends Controller
                 'responseBody' => $response->body(),
             ]);
         } catch (\Exception $e) {
+            Log::create([
+                'level' => 'error',
+                'message' => 'Failed to send email',
+                'context' => [
+                    'error' => $e->getMessage(),
+                ]
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'SendGrid Exception: ' . $e->getMessage(),
