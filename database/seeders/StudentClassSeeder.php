@@ -15,13 +15,13 @@ class StudentClassSeeder extends Seeder
     public function run(): void
     {
         $faker = Faker::create();
-        $classIds = DB::table('classes')->pluck('class_id')->toArray();
-        $total = 50;
+        // $classIds = DB::table('classes')->pluck('class_id')->toArray();
+        $total = 100;
 
-        if (empty($classIds)) {
-            $this->command->error('No classes found in the database. Please seed classes first.');
-            return;
-        }
+        // if (empty($classIds)) {
+        //     $this->command->error('No classes found in the database. Please seed classes first.');
+        //     return;
+        // }
 
         try {
             // Fetch random user data including picture, gender, name, and location
@@ -52,7 +52,7 @@ class StudentClassSeeder extends Seeder
                 'usertype' => 'Student',
                 'email' => $studentEmail,
                 'email_verified_at' => now(),
-                'password' => Hash::make('student123'),
+                'password' => Hash::make('password123'),
                 'remember_token' => Str::random(10),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -88,7 +88,7 @@ class StudentClassSeeder extends Seeder
                 'usertype' => 'Parent',
                 'email' => $parentIdNumber . '@example.com',
                 'email_verified_at' => now(),
-                'password' => Hash::make('parent123'),
+                'password' => Hash::make('password123'),
                 'remember_token' => Str::random(10),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -106,16 +106,16 @@ class StudentClassSeeder extends Seeder
             ]);
 
             // 4. Assign student to up to 2 random classes
-            $assignedClassIds = collect($classIds)->random(min(2, count($classIds)))->all();
-            foreach ($assignedClassIds as $classId) {
-                DB::table('class_students')->insert([
-                    'idnumber' => $studentIdNumber,
-                    'class_id' => $classId,
-                    'status' => 'active',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            // $assignedClassIds = collect($classIds)->random(min(2, count($classIds)))->all();
+            // foreach ($assignedClassIds as $classId) {
+            //     DB::table('class_students')->insert([
+            //         'idnumber' => $studentIdNumber,
+            //         'class_id' => $classId,
+            //         'status' => 'active',
+            //         'created_at' => now(),
+            //         'updated_at' => now(),
+            //     ]);
+            // }
         }
 
         $this->command->info("Seeded {$total} students (with photos) successfully.");

@@ -1110,36 +1110,92 @@ class SectionController extends Controller
     {
         $user = Auth::user();
 
-        // Ensure the user is a teacher
-        if (!$user || $user->usertype !== 'Teacher') {
-            return response()->json(['error' => 'Unauthorized.'], 403);
+        // Ensure a user is logged in
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
-        // Get the quiz
+        // Get the quiz or fail
         $quiz = QuizAssessment::findOrFail($quizAssessmentId);
 
-        // Fetch all submissions
-        $submissions = DB::table('quiz_assessment_student')
-            ->where('quiz_assessment_id', $quiz->id)
-            ->join('students', 'quiz_assessment_student.student_idnumber', '=', 'students.idnumber')
-            ->select(
-                'students.idnumber',
-                'students.firstname',
-                'students.lastname',
-                'quiz_assessment_student.answer_text',
-                'quiz_assessment_student.file_path',
-                'quiz_assessment_student.submitted_at',
-                'quiz_assessment_student.attempts',
-                'quiz_assessment_student.score'
-            )
-            ->orderByDesc('quiz_assessment_student.submitted_at')
-            ->get();
+        // --- TEACHER LOGIC ---
+        // If the user is a Teacher, fetch all submissions (original logic)
+        if ($user->usertype === 'Teacher') {
+            $submissions = DB::table('quiz_assessment_student')
+                ->where('quiz_assessment_id', $quiz->id)
+                ->join('students', 'quiz_assessment_student.student_idnumber', '=', 'students.idnumber')
+                ->select(
+                    'students.idnumber',
+                    'students.firstname',
+                    'students.lastname',
+                    'quiz_assessment_student.answer_text',
+                    'quiz_assessment_student.file_path',
+                    'quiz_assessment_student.feedback',
+                    'quiz_assessment_student.submitted_at',
+                    'quiz_assessment_student.attempts',
+                    'quiz_assessment_student.score'
+                )
+                ->orderByDesc('quiz_assessment_student.submitted_at')
+                ->get();
 
-        return response()->json([
-            'quiz_id' => $quiz->id,
-            'quiz_title' => $quiz->title,
-            'submissions' => $submissions,
-        ]);
+            return response()->json([
+                'quiz_id' => $quiz->id,
+                'quiz_title' => $quiz->title,
+                'submissions' => $submissions,
+            ]);
+        }
+        
+        // --- STUDENT LOGIC ---
+        // If the user is a Student, fetch only their own score
+        if ($user->usertype === 'Student') {
+            $submission = DB::table('quiz_assessment_student')
+                ->where('quiz_assessment_id', $quiz->id)
+                ->where('student_idnumber', $user->idnumber) // Filter by the logged-in student's ID
+                ->select('answer_text', 'file_path', 'score', 'feedback', 'submitted_at', 'attempts')
+                ->latest('submitted_at') // Get the most recent submission
+                ->first();
+
+            // Check if the student has made a submission
+            if (!$submission) {
+                return response()->json(['message' => 'No submission found for this quiz.'], 404);
+            }
+
+            return response()->json([
+                'quiz_title' => $quiz->title,
+                'submission' => $submission,
+            ]);
+        }
+
+        elseif ($user->usertype === 'Parent') {
+            // Get the child's ID by removing '-parent' from the parent's ID number
+            $studentIdNumber = str_replace('-parent', '', $user->idnumber);
+
+            $submission = DB::table('quiz_assessment_student')
+                ->where('quiz_assessment_student.quiz_assessment_id', $quiz->id)
+                ->where('quiz_assessment_student.student_idnumber', $studentIdNumber)
+                ->join('students', 'quiz_assessment_student.student_idnumber', '=', 'students.idnumber')
+                ->select(
+                    'students.firstname',
+                    'students.lastname',
+                    'quiz_assessment_student.score',
+                    'quiz_assessment_student.feedback',
+                    'quiz_assessment_student.submitted_at',
+                    'quiz_assessment_student.attempts'
+                )
+                ->latest('quiz_assessment_student.submitted_at')
+                ->first();
+                
+            if (!$submission) {
+                return response()->json(['message' => 'No submission found for your child for this quiz.'], 404);
+            }
+
+            return response()->json([
+                'quiz_title' => $quiz->title,
+                'child_submission' => $submission,
+            ]);
+        }
+        // If user is neither a Student nor a Teacher, deny access
+        return response()->json(['error' => 'Unauthorized.'], 403);
     }
 
     public function checkDropboxSubmissions($dropboxAssessmentId)
@@ -1196,6 +1252,7 @@ class SectionController extends Controller
         // Validate score input
         $request->validate([
             'score' => 'required|integer|min:0',
+            'feedback' => 'nullable|string',
         ]);
 
         // Ensure quiz exists
@@ -1234,6 +1291,7 @@ class SectionController extends Controller
             ->where('student_idnumber', $studentIdnumber)
             ->update([
                 'score' => $request->input('score'),
+                'feedback' => $request->input('feedback'),
                 'updated_at' => now(),
             ]);
 

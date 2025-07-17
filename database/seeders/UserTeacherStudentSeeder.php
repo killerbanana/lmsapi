@@ -34,7 +34,8 @@ class UserTeacherStudentSeeder extends Seeder
         for ($i = 1; $i <= $total; $i++) {
             $idnumber = sprintf('TCH%03d', $i);
             $username = "teacher{$i}";
-            $email = ($i === 1) ? 'jaysonviernes@gmail.com' : "{$username}@example.com";
+            // $email = ($i === 1) ? 'jaysonviernes@gmail.com' : "{$username}@example.com";
+            $email = "{$username}@example.com";
             $gender = $faker->randomElement(['male', 'female']);
             $photo = $photos[array_rand($photos)];
 
