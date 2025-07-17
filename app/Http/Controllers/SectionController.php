@@ -218,6 +218,7 @@ class SectionController extends Controller
                                 'score'          => $student->pivot->score,
                                 'submitted_at'   => $student->pivot->submitted_at,
                                 'attempt'        => $student->pivot->attempts,
+                                'feedback'       => $student->pivot->feedback,
                                 'is_submitted'   => !is_null($student->pivot->submitted_at),
                                 'is_max_attempt' => $quiz->max_attempts ? ($student->pivot->attempts >= $quiz->max_attempts) : false,
                             ];
@@ -1144,7 +1145,7 @@ class SectionController extends Controller
                 'submissions' => $submissions,
             ]);
         }
-        
+
         // --- STUDENT LOGIC ---
         // If the user is a Student, fetch only their own score
         if ($user->usertype === 'Student') {
