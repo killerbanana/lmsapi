@@ -64,7 +64,7 @@ class QuizAssessment extends Model
             'student_idnumber',             // Foreign key on pivot table for the Student model
             'id',                           // Parent key on this model (QuizAssessment)
             'idnumber'                      // The key on the Student model to join with
-        )->withPivot('score', 'submitted_at', 'attempts', 'answer_text', 'file_path');
+        )->withPivot('score', 'submitted_at', 'attempts', 'answer_text', 'file_path', 'feedback');
     }
     
 }
