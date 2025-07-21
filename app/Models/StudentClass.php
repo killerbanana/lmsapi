@@ -50,4 +50,10 @@ class StudentClass extends Model
     {
         return $this->hasMany(Attendance::class, 'class_student_id', 'id');
     }
+
+    public function student()
+    {
+        // CORRECTED: This now points to the Student model.
+        return $this->belongsTo(Students::class, 'idnumber', 'idnumber');
+    }
 }

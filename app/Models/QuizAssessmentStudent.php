@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class QuizAssessmentStudent extends Model
 {
+    protected $table = 'quiz_assessment_student';
+    
     public function quizAssessment()
     {
         return $this->belongsTo(QuizAssessment::class);

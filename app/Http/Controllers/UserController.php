@@ -10,6 +10,10 @@ use App\Models\Admin;
 use App\Models\Students;
 use App\Models\Teachers;
 use App\Models\ParentModel;
+use App\Models\Attendance;
+use App\Models\StudentClass;
+use App\Models\QuizAssessmentStudent;
+use App\Models\QuizAssessment;
 use Illuminate\Support\Facades\Hash;
 use App\Services\RoleAbilitiesService;
 use Illuminate\Support\Facades\Auth;
@@ -871,4 +875,114 @@ class UserController extends Controller
         // Example of logging an error
         return response()->json(['logged_in' => false], 401);
     }
+
+    public function fetchStudentPerformanceData(Request $request, $classId)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'required|date',
+            'end_date'   => 'required|date|after_or_equal:start_date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        try {
+            // Get total instructional days for the class in the period
+            $totalClassDays = Attendance::query()
+                ->join('class_students', 'attendances.class_student_id', '=', 'class_students.id')
+                ->where('class_students.class_id', $classId)
+                ->whereBetween('attendance_date', [$startDate, $endDate])
+                ->distinct('attendance_date')
+                ->count('attendance_date');
+
+            // Get total available assignments (currently quizzes only)
+            $totalAssignments = QuizAssessment::where('section_id', $classId)
+                ->whereBetween('due', [$startDate, $endDate])
+                ->count();
+                
+            $studentsQuery = StudentClass::where('class_id', $classId)
+                ->with('student:idnumber,firstname,lastname')
+                ->addSelect([
+                    // Subquery for average quiz score
+                    'average_quiz_score' => QuizAssessmentStudent::query()
+                        ->selectRaw('AVG(score)')
+                        ->join('quiz_assessments', 'quiz_assessments.id', '=', 'quiz_assessment_student.quiz_assessment_id')
+                        ->whereColumn('quiz_assessment_student.student_idnumber', 'class_students.idnumber')
+                        ->where('quiz_assessments.section_id', $classId)
+                        ->whereBetween('quiz_assessments.due', [$startDate, $endDate]),
+                    
+                    // Subquery for student's total submissions (currently quizzes only)
+                    'student_total_submissions' => DB::raw(
+                        "(SELECT COUNT(*) FROM quiz_assessment_student qas
+                          JOIN quiz_assessments qa ON qa.id = qas.quiz_assessment_id
+                          WHERE qas.student_idnumber = class_students.idnumber AND qa.section_id = '{$classId}' AND qa.due BETWEEN '{$startDate}' AND '{$endDate}')"
+                    )
+                ])
+                ->withCount([
+                    'attendances as present_count' => function ($query) use ($startDate, $endDate) {
+                        $query->whereIn('status', ['present', 'excused'])->whereBetween('attendance_date', [$startDate, $endDate]);
+                    },
+                    'attendances as absent_count' => function ($query) use ($startDate, $endDate) {
+                        $query->where('status', 'absent')->whereBetween('attendance_date', [$startDate, $endDate]);
+                    },
+                    'attendances as late_count' => function ($query) use ($startDate, $endDate) {
+                        $query->where('status', 'late')->whereBetween('attendance_date', [$startDate, $endDate]);
+                    }
+                ]);
+
+            $studentsData = $studentsQuery->get();
+            
+            $processedData = $studentsData->map(function ($student) use ($totalClassDays, $totalAssignments) {
+                $attendanceAverage = ($totalClassDays > 0)
+                    ? ($student->present_count / $totalClassDays) * 100
+                    : 0;
+                
+                $submissionPercentage = ($totalAssignments > 0)
+                    ? ($student->student_total_submissions / $totalAssignments) * 100
+                    : 0;
+
+                $isAtRisk = false;
+                $riskFactors = [];
+
+                if ($attendanceAverage < 85) {
+                    $isAtRisk = true;
+                    $riskFactors[] = 'Low Attendance';
+                }
+                if ($student->average_quiz_score !== null && $student->average_quiz_score < 75) {
+                    $isAtRisk = true;
+                    $riskFactors[] = 'Low Quiz Scores';
+                }
+
+                return [
+                    'id_number' => $student->idnumber,
+                    'student_name' => $student->student->firstname . ' ' . $student->student->lastname,
+                    'attendance' => [
+                        'present_count' => $student->present_count,
+                        'absent_count' => $student->absent_count,
+                        'late_count' => $student->late_count,
+                        'total_class_days' => $totalClassDays,
+                        'attendance_average' => round($attendanceAverage, 2)
+                    ],
+                    'average_quiz_score' => round($student->average_quiz_score, 2),
+                    'submissions' => [
+                        'completed_count' => (int) $student->student_total_submissions,
+                        'total_assignments' => $totalAssignments,
+                        'submission_average' => round($submissionPercentage, 2)
+                    ],
+                    'at_risk' => $isAtRisk,
+                    'at_risk_reasons' => implode(', ', array_unique($riskFactors))
+                ];
+            });
+
+            return response()->json($processedData, 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch student data', 'details' => $e->getMessage()], 500);
+        }
+    }
+
 }
