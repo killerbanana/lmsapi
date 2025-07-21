@@ -50,7 +50,8 @@ class RoleAbilitiesService
                 'view-classes-all',
                 'add-student-lessons',
                 'update-lesson-progress',
-                'update-section-progress'
+                'update-section-progress',
+                'fetchStudentPerformanceData'
             ],
             'Student' => ['check-quiz-submissions', 'get-announcement-all', 'submit-dropbox-assessment', 'view-teachers', 'view-parents', 'view-dropbox-submissions', 'view-own-attendance', 'update-section-progress', 'changePassword', 'section-student', 'section-student-linked', 'submit-quiz-answer', 'section-student', 'get-announcement',  'view-grades', 'update-profile', 'answer-module', 'view-classes', 'view-lessons', 'view-section', 'update-section', 'view-classes-all', 'update-lesson-progress', 'update-section-progress'],
             'Parent' => ['check-quiz-submissions','view-lessons', 'get-announcement-all', 'view-teachers', 'view-own-attendance', 'section-student-linked', 'view-parents', 'changePassword', 'read-only', 'view-students-parent', 'get-announcement', 'view-classes-all'],

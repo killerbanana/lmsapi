@@ -46,6 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/user/{idnumber}/update-status', [UserController::class, 'updateStatus'])
     ->middleware('auth:sanctum'); 
+
+    Route::get('/user/class/{classId}/performance', [UserController::class, 'fetchStudentPerformanceData'])
+    ->middleware('check.ability:fetchStudentPerformanceData');
+
     
     // Registration Routes
     Route::post('/register/student', [UserController::class, 'registerStudent'])
