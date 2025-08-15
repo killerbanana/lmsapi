@@ -878,6 +878,7 @@ class UserController extends Controller
 
     public function fetchStudentPerformanceData(Request $request, $classId)
     {
+        // 1. Validate the incoming request data for start and end dates.
         $validator = Validator::make($request->all(), [
             'start_date' => 'required|date',
             'end_date'   => 'required|date|after_or_equal:start_date',
@@ -891,7 +892,7 @@ class UserController extends Controller
         $endDate = $request->input('end_date');
 
         try {
-            // Get total instructional days for the class in the period
+            // 2. Calculate total instructional days for the class within the date range.
             $totalClassDays = Attendance::query()
                 ->join('class_students', 'attendances.class_student_id', '=', 'class_students.id')
                 ->where('class_students.class_id', $classId)
@@ -899,28 +900,40 @@ class UserController extends Controller
                 ->distinct('attendance_date')
                 ->count('attendance_date');
 
-            // Get total available assignments (currently quizzes only)
-            $totalAssignments = QuizAssessment::where('section_id', $classId)
+            // 3. Calculate the total number of quizzes due within the date range.
+            $totalAssignments = QuizAssessment::query()
+                // FINAL FIX: Join through sections and then lessons to filter by the correct class ID
+                ->join('sections', 'sections.id', '=', 'quiz_assessments.section_id')
+                ->join('lessons', 'lessons.id', '=', 'sections.lesson_id')
+                ->where('lessons.class_id', $classId)
                 ->whereBetween('due', [$startDate, $endDate])
                 ->count();
-                
+            
+            // 4. Build the main query to get all students in the class.
             $studentsQuery = StudentClass::where('class_id', $classId)
                 ->with('student:idnumber,firstname,lastname')
                 ->addSelect([
-                    // Subquery for average quiz score
+                    // Subquery for calculating the average quiz score for each student.
                     'average_quiz_score' => QuizAssessmentStudent::query()
                         ->selectRaw('AVG(score)')
                         ->join('quiz_assessments', 'quiz_assessments.id', '=', 'quiz_assessment_student.quiz_assessment_id')
+                        // FINAL FIX: Join through sections and then lessons to filter by the correct class ID
+                        ->join('sections', 'sections.id', '=', 'quiz_assessments.section_id')
+                        ->join('lessons', 'lessons.id', '=', 'sections.lesson_id')
                         ->whereColumn('quiz_assessment_student.student_idnumber', 'class_students.idnumber')
-                        ->where('quiz_assessments.section_id', $classId)
+                        ->where('lessons.class_id', $classId)
                         ->whereBetween('quiz_assessments.due', [$startDate, $endDate]),
                     
-                    // Subquery for student's total submissions (currently quizzes only)
-                    'student_total_submissions' => DB::raw(
-                        "(SELECT COUNT(*) FROM quiz_assessment_student qas
-                          JOIN quiz_assessments qa ON qa.id = qas.quiz_assessment_id
-                          WHERE qas.student_idnumber = class_students.idnumber AND qa.section_id = '{$classId}' AND qa.due BETWEEN '{$startDate}' AND '{$endDate}')"
-                    )
+                    // Subquery for counting total quiz submissions for each student.
+                    'student_total_submissions' => QuizAssessmentStudent::query()
+                        ->selectRaw('COUNT(*)')
+                        ->join('quiz_assessments', 'quiz_assessments.id', '=', 'quiz_assessment_student.quiz_assessment_id')
+                        // FINAL FIX: Join through sections and then lessons to filter by the correct class ID
+                        ->join('sections', 'sections.id', '=', 'quiz_assessments.section_id')
+                        ->join('lessons', 'lessons.id', '=', 'sections.lesson_id')
+                        ->whereColumn('quiz_assessment_student.student_idnumber', 'class_students.idnumber')
+                        ->where('lessons.class_id', $classId)
+                        ->whereBetween('quiz_assessments.due', [$startDate, $endDate]),
                 ])
                 ->withCount([
                     'attendances as present_count' => function ($query) use ($startDate, $endDate) {
@@ -934,8 +947,10 @@ class UserController extends Controller
                     }
                 ]);
 
+            // 5. Execute the query.
             $studentsData = $studentsQuery->get();
             
+            // 6. Process the raw data into a clean, front-end-ready format.
             $processedData = $studentsData->map(function ($student) use ($totalClassDays, $totalAssignments) {
                 $attendanceAverage = ($totalClassDays > 0)
                     ? ($student->present_count / $totalClassDays) * 100
@@ -967,7 +982,7 @@ class UserController extends Controller
                         'total_class_days' => $totalClassDays,
                         'attendance_average' => round($attendanceAverage, 2)
                     ],
-                    'average_quiz_score' => round($student->average_quiz_score, 2),
+                    'average_quiz_score' => $student->average_quiz_score !== null ? round($student->average_quiz_score, 2) : null,
                     'submissions' => [
                         'completed_count' => (int) $student->student_total_submissions,
                         'total_assignments' => $totalAssignments,
@@ -981,8 +996,118 @@ class UserController extends Controller
             return response()->json($processedData, 200);
 
         } catch (\Exception $e) {
+            // 7. Catch any unexpected errors and return a generic error response.
             return response()->json(['error' => 'Failed to fetch student data', 'details' => $e->getMessage()], 500);
         }
     }
+
+    // public function fetchStudentPerformanceData(Request $request, $classId)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'start_date' => 'required|date',
+    //         'end_date'   => 'required|date|after_or_equal:start_date',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json(['errors' => $validator->errors()], 422);
+    //     }
+
+    //     $startDate = $request->input('start_date');
+    //     $endDate = $request->input('end_date');
+
+    //     try {
+    //         // Get total instructional days for the class in the period
+    //         $totalClassDays = Attendance::query()
+    //             ->join('class_students', 'attendances.class_student_id', '=', 'class_students.id')
+    //             ->where('class_students.class_id', $classId)
+    //             ->whereBetween('attendance_date', [$startDate, $endDate])
+    //             ->distinct('attendance_date')
+    //             ->count('attendance_date');
+
+    //         // Get total available assignments (currently quizzes only)
+    //         $totalAssignments = QuizAssessment::where('section_id', $classId)
+    //             ->whereBetween('due', [$startDate, $endDate])
+    //             ->count();
+                
+    //         $studentsQuery = StudentClass::where('class_id', $classId)
+    //             ->with('student:idnumber,firstname,lastname')
+    //             ->addSelect([
+    //                 // Subquery for average quiz score
+    //                 'average_quiz_score' => QuizAssessmentStudent::query()
+    //                     ->selectRaw('AVG(score)')
+    //                     ->join('quiz_assessments', 'quiz_assessments.id', '=', 'quiz_assessment_student.quiz_assessment_id')
+    //                     ->whereColumn('quiz_assessment_student.student_idnumber', 'class_students.idnumber')
+    //                     ->where('quiz_assessments.section_id', $classId)
+    //                     ->whereBetween('quiz_assessments.due', [$startDate, $endDate]),
+                    
+    //                 // Subquery for student's total submissions (currently quizzes only)
+    //                 'student_total_submissions' => DB::raw(
+    //                     "(SELECT COUNT(*) FROM quiz_assessment_student qas
+    //                       JOIN quiz_assessments qa ON qa.id = qas.quiz_assessment_id
+    //                       WHERE qas.student_idnumber = class_students.idnumber AND qa.section_id = '{$classId}' AND qa.due BETWEEN '{$startDate}' AND '{$endDate}')"
+    //                 )
+    //             ])
+    //             ->withCount([
+    //                 'attendances as present_count' => function ($query) use ($startDate, $endDate) {
+    //                     $query->whereIn('status', ['present', 'excused'])->whereBetween('attendance_date', [$startDate, $endDate]);
+    //                 },
+    //                 'attendances as absent_count' => function ($query) use ($startDate, $endDate) {
+    //                     $query->where('status', 'absent')->whereBetween('attendance_date', [$startDate, $endDate]);
+    //                 },
+    //                 'attendances as late_count' => function ($query) use ($startDate, $endDate) {
+    //                     $query->where('status', 'late')->whereBetween('attendance_date', [$startDate, $endDate]);
+    //                 }
+    //             ]);
+
+    //         $studentsData = $studentsQuery->get();
+            
+    //         $processedData = $studentsData->map(function ($student) use ($totalClassDays, $totalAssignments) {
+    //             $attendanceAverage = ($totalClassDays > 0)
+    //                 ? ($student->present_count / $totalClassDays) * 100
+    //                 : 0;
+                
+    //             $submissionPercentage = ($totalAssignments > 0)
+    //                 ? ($student->student_total_submissions / $totalAssignments) * 100
+    //                 : 0;
+
+    //             $isAtRisk = false;
+    //             $riskFactors = [];
+
+    //             if ($attendanceAverage < 85) {
+    //                 $isAtRisk = true;
+    //                 $riskFactors[] = 'Low Attendance';
+    //             }
+    //             if ($student->average_quiz_score !== null && $student->average_quiz_score < 75) {
+    //                 $isAtRisk = true;
+    //                 $riskFactors[] = 'Low Quiz Scores';
+    //             }
+
+    //             return [
+    //                 'id_number' => $student->idnumber,
+    //                 'student_name' => $student->student->firstname . ' ' . $student->student->lastname,
+    //                 'attendance' => [
+    //                     'present_count' => $student->present_count,
+    //                     'absent_count' => $student->absent_count,
+    //                     'late_count' => $student->late_count,
+    //                     'total_class_days' => $totalClassDays,
+    //                     'attendance_average' => round($attendanceAverage, 2)
+    //                 ],
+    //                 'average_quiz_score' => round($student->average_quiz_score, 2),
+    //                 'submissions' => [
+    //                     'completed_count' => (int) $student->student_total_submissions,
+    //                     'total_assignments' => $totalAssignments,
+    //                     'submission_average' => round($submissionPercentage, 2)
+    //                 ],
+    //                 'at_risk' => $isAtRisk,
+    //                 'at_risk_reasons' => implode(', ', array_unique($riskFactors))
+    //             ];
+    //         });
+
+    //         return response()->json($processedData, 200);
+
+    //     } catch (\Exception $e) {
+    //         return response()->json(['error' => 'Failed to fetch student data', 'details' => $e->getMessage()], 500);
+    //     }
+    // }
 
 }
